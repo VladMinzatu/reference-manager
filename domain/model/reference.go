@@ -11,6 +11,7 @@ type Renderer interface {
 }
 
 type BookReference struct {
+	Id    string
 	Title string
 	ISBN  string
 }
@@ -20,6 +21,7 @@ func (b BookReference) Render(renderer Renderer) {
 }
 
 type LinkReference struct {
+	Id          string
 	Title       string
 	URL         string
 	Description string
@@ -30,6 +32,7 @@ func (l LinkReference) Render(renderer Renderer) {
 }
 
 type NoteReference struct {
+	Id    string
 	Title string
 	Text  string
 }
