@@ -1,0 +1,56 @@
+package service
+
+import (
+	"fmt"
+
+	"github.com/VladMinzatu/reference-manager/domain/model"
+	"github.com/VladMinzatu/reference-manager/domain/repository"
+)
+
+type ReferenceService struct {
+	repo repository.Repository
+}
+
+func NewReferenceService(repo repository.Repository) *ReferenceService {
+	srv := &ReferenceService{repo: repo}
+	return srv
+}
+
+func (s *ReferenceService) GetAllCategories() ([]model.Category, error) {
+	return s.repo.GetAllCategories()
+}
+
+func (s *ReferenceService) AddCategory(name string) (model.Category, error) {
+	return s.repo.AddCategory(name)
+}
+
+func (s *ReferenceService) GetReferences(categoryId string) ([]model.Reference, error) {
+	return s.repo.GetRefereces(categoryId)
+}
+
+func (s *ReferenceService) AddBookReference(categoryId string, title string, isbn string) (model.BookReference, error) {
+	return s.repo.AddBookReferece(categoryId, title, isbn)
+}
+
+func (s *ReferenceService) AddLinkReference(categoryId string, title string, url string, description string) (model.LinkReference, error) {
+	return s.repo.AddLinkReferece(categoryId, title, url, description)
+}
+
+func (s *ReferenceService) AddNoteReference(categoryId string, title string, text string) (model.NoteReference, error) {
+	return s.repo.AddNoteReferece(categoryId, title, text)
+}
+
+func (s *ReferenceService) ReorderReferences(categoryId string, positions map[string]int) error {
+	n := len(positions)
+	seen := make(map[int]struct{})
+	for _, pos := range positions {
+		if pos < 0 || pos >= n {
+			return fmt.Errorf("invalid position value: positions must be in range 0..%d", n-1)
+		}
+		if _, exists := seen[pos]; exists {
+			return fmt.Errorf("duplicate position value: %d. Each position must be unique", pos)
+		}
+		seen[pos] = struct{}{}
+	}
+	return s.repo.ReorderReferences(categoryId, positions)
+}
