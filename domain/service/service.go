@@ -40,7 +40,21 @@ func (s *ReferenceService) AddNoteReference(categoryId string, title string, tex
 	return s.repo.AddNoteReferece(categoryId, title, text)
 }
 
+func (s *ReferenceService) ReorderCategories(positions map[string]int) error {
+	if err := validatePositions(positions); err != nil {
+		return err
+	}
+	return s.repo.ReorderCategories(positions)
+}
+
 func (s *ReferenceService) ReorderReferences(categoryId string, positions map[string]int) error {
+	if err := validatePositions(positions); err != nil {
+		return err
+	}
+	return s.repo.ReorderReferences(categoryId, positions)
+}
+
+func validatePositions(positions map[string]int) error {
 	n := len(positions)
 	seen := make(map[int]struct{})
 	for _, pos := range positions {
@@ -52,5 +66,5 @@ func (s *ReferenceService) ReorderReferences(categoryId string, positions map[st
 		}
 		seen[pos] = struct{}{}
 	}
-	return s.repo.ReorderReferences(categoryId, positions)
+	return nil
 }

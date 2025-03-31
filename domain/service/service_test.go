@@ -47,6 +47,11 @@ func (m *MockRepository) ReorderReferences(categoryId string, positions map[stri
 	return args.Error(0)
 }
 
+func (m *MockRepository) ReorderCategories(positions map[string]int) error {
+	args := m.Called(positions)
+	return args.Error(0)
+}
+
 func TestGetAllCategories(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
@@ -77,6 +82,49 @@ func TestAddCategory(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedCategory, category)
 	mockRepo.AssertExpectations(t)
+}
+
+func TestReorderCategories_ValidPositions(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	positions := map[string]int{
+		"cat1": 0,
+		"cat2": 1,
+		"cat3": 2,
+	}
+
+	mockRepo.On("ReorderCategories", positions).Return(nil)
+
+	err := service.ReorderCategories(positions)
+
+	assert.NoError(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestReorderCategories_InvalidPositions(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	positions := map[string]int{
+		"cat1": 0,
+		"cat2": 0, // duplicate position
+		"cat3": 2,
+	}
+
+	err := service.ReorderCategories(positions)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate position value")
+
+	positions = map[string]int{
+		"cat1": 0,
+		"cat2": 5, // position >= len(positions)
+		"cat3": 2,
+	}
+
+	err = service.ReorderCategories(positions)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid position value")
 }
 
 func TestReorderReferences_ValidPositions(t *testing.T) {
