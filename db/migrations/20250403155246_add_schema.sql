@@ -57,7 +57,7 @@ DROP TABLE reference_positions;
 DROP TABLE note_references;
 DROP TABLE link_references;
 DROP TABLE book_references;
-DROP TABLE references;
+DROP TABLE base_references;
 DROP TABLE category_positions;
 DROP TABLE categories;
 
