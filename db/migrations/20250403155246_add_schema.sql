@@ -11,36 +11,41 @@ CREATE TABLE category_positions (
     FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
-CREATE TABLE book_references (
+CREATE TABLE base_references (
     id BIGSERIAL PRIMARY KEY,
     category_id BIGINT NOT NULL,
     title VARCHAR(255) NOT NULL,
-    isbn VARCHAR(50) NOT NULL,
+    reference_type VARCHAR(50) NOT NULL,
     FOREIGN KEY (category_id) REFERENCES categories(id)
+);
+
+CREATE TABLE book_references (
+    id BIGINT PRIMARY KEY,
+    reference_id BIGINT NOT NULL UNIQUE,
+    isbn VARCHAR(50) NOT NULL,
+    FOREIGN KEY (reference_id) REFERENCES base_references(id)
 );
 
 CREATE TABLE link_references (
-    id BIGSERIAL PRIMARY KEY,
-    category_id BIGINT NOT NULL,
-    title VARCHAR(255) NOT NULL,
+    id BIGINT PRIMARY KEY,
+    reference_id BIGINT NOT NULL UNIQUE,
     url TEXT NOT NULL,
     description TEXT,
-    FOREIGN KEY (category_id) REFERENCES categories(id)
+    FOREIGN KEY (reference_id) REFERENCES base_references(id)
 );
 
 CREATE TABLE note_references (
-    id BIGSERIAL PRIMARY KEY,
-    category_id BIGINT NOT NULL,
-    title VARCHAR(255) NOT NULL,
+    id BIGINT PRIMARY KEY,
+    reference_id BIGINT NOT NULL UNIQUE,
     text TEXT NOT NULL,
-    FOREIGN KEY (category_id) REFERENCES categories(id)
+    FOREIGN KEY (reference_id) REFERENCES base_references(id)
 );
 
 CREATE TABLE reference_positions (
     reference_id BIGINT PRIMARY KEY,
     category_id BIGINT NOT NULL,
     position INTEGER NOT NULL,
-    FOREIGN KEY (reference_id) REFERENCES references(id),
+    FOREIGN KEY (reference_id) REFERENCES base_references(id),
     FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
@@ -52,6 +57,7 @@ DROP TABLE reference_positions;
 DROP TABLE note_references;
 DROP TABLE link_references;
 DROP TABLE book_references;
+DROP TABLE references;
 DROP TABLE category_positions;
 DROP TABLE categories;
 
