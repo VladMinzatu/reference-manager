@@ -28,6 +28,27 @@ paths:
         '201':
           description: Category created successfully
 
+  /categories/reorder:
+    put:
+      summary: Reorder categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                positions:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Map of category IDs to their new positions (zero-based)
+      responses:
+        '200':
+          description: Categories reordered successfully
+        '400':
+          description: Invalid positions provided
+
   /categories/{id}:
     get:
       summary: Get a category by ID
@@ -115,6 +136,33 @@ paths:
         '201':
           description: Reference added successfully
 
+  /categories/{id}/references/reorder:
+    put:
+      summary: Reorder references within a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                positions:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Map of reference IDs to their new positions (zero-based)
+      responses:
+        '200':
+          description: References reordered successfully
+        '400':
+          description: Invalid positions provided
+
   /categories/{id}/references/{referenceId}:
     get:
       summary: Get a specific reference by ID
@@ -180,7 +228,6 @@ paths:
       responses:
         '204':
           description: Reference deleted successfully
-
 components:
   schemas:
     Category:
