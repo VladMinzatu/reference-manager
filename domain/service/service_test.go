@@ -57,8 +57,8 @@ func TestGetAllCategories(t *testing.T) {
 	service := NewReferenceService(mockRepo)
 
 	expectedCategories := []model.Category{
-		{Id: "1", Name: "Category 1"},
-		{Id: "2", Name: "Category 2"},
+		{Id: 1, Name: "Category 1"},
+		{Id: 2, Name: "Category 2"},
 	}
 
 	mockRepo.On("GetAllCategories").Return(expectedCategories, nil)
@@ -74,7 +74,7 @@ func TestAddCategory(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	expectedCategory := model.Category{Id: "1", Name: "New Category"}
+	expectedCategory := model.Category{Id: 1, Name: "New Category"}
 	mockRepo.On("AddCategory", "New Category").Return(expectedCategory, nil)
 
 	category, err := service.AddCategory("New Category")
