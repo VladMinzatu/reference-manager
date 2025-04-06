@@ -15,7 +15,6 @@ CREATE TABLE base_references (
     id BIGSERIAL PRIMARY KEY,
     category_id BIGINT NOT NULL,
     title VARCHAR(255) NOT NULL,
-    reference_type VARCHAR(50) NOT NULL,
     FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 

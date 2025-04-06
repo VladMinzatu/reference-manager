@@ -10,14 +10,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type ReferenceType string
-
-const (
-	BookReferenceType ReferenceType = "book"
-	LinkReferenceType ReferenceType = "link"
-	NoteReferenceType ReferenceType = "note"
-)
-
 type SQLiteRepository struct {
 	db *sql.DB
 }
@@ -98,8 +90,19 @@ func (r *SQLiteRepository) AddCategory(name string) (model.Category, error) {
 }
 
 func (r *SQLiteRepository) GetRefereces(categoryId string) ([]model.Reference, error) {
+	const (
+		BOOK_TYPE = "book"
+		LINK_TYPE = "link"
+		NOTE_TYPE = "note"
+	)
+
 	rows, err := r.db.Query(`
-		SELECT br.id, br.title, br.reference_type, 
+		SELECT br.id, br.title,
+			   CASE 
+				   WHEN bk.reference_id IS NOT NULL THEN ?
+				   WHEN l.reference_id IS NOT NULL THEN ?
+				   WHEN n.reference_id IS NOT NULL THEN ?
+			   END as ref_type,
 			   COALESCE(bk.isbn, '') as isbn,
 			   COALESCE(l.url, '') as url,
 			   COALESCE(l.description, '') as description,
@@ -110,7 +113,7 @@ func (r *SQLiteRepository) GetRefereces(categoryId string) ([]model.Reference, e
 		LEFT JOIN note_references n ON br.id = n.reference_id
 		LEFT JOIN reference_positions rp ON br.id = rp.reference_id
 		WHERE br.category_id = ?
-		ORDER BY rp.position`, categoryId)
+		ORDER BY rp.position`, BOOK_TYPE, LINK_TYPE, NOTE_TYPE, categoryId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying references: %v", err)
 	}
@@ -124,12 +127,12 @@ func (r *SQLiteRepository) GetRefereces(categoryId string) ([]model.Reference, e
 			return nil, fmt.Errorf("error scanning reference: %v", err)
 		}
 
-		switch ReferenceType(refType) {
-		case BookReferenceType:
+		switch refType {
+		case BOOK_TYPE:
 			references = append(references, model.BookReference{Id: id, Title: title, ISBN: isbn})
-		case LinkReferenceType:
+		case LINK_TYPE:
 			references = append(references, model.LinkReference{Id: id, Title: title, URL: url, Description: description})
-		case NoteReferenceType:
+		case NOTE_TYPE:
 			references = append(references, model.NoteReference{Id: id, Title: title, Text: text})
 		}
 	}
@@ -144,8 +147,8 @@ func (r *SQLiteRepository) AddBookReferece(categoryId string, title string, isbn
 	defer tx.Rollback()
 
 	result, err := tx.Exec(`
-		INSERT INTO base_references (category_id, title, reference_type) 
-		VALUES (?, ?, ?)`, categoryId, title, BookReferenceType)
+		INSERT INTO base_references (category_id, title) 
+		VALUES (?, ?)`, categoryId, title)
 	if err != nil {
 		return model.BookReference{}, fmt.Errorf("error inserting base reference: %v", err)
 	}
@@ -197,8 +200,8 @@ func (r *SQLiteRepository) AddLinkReferece(categoryId string, title string, url 
 	defer tx.Rollback()
 
 	result, err := tx.Exec(`
-		INSERT INTO base_references (category_id, title, reference_type)
-		VALUES (?, ?, ?)`, categoryId, title, LinkReferenceType)
+		INSERT INTO base_references (category_id, title)
+		VALUES (?, ?)`, categoryId, title)
 	if err != nil {
 		return model.LinkReference{}, fmt.Errorf("error inserting base reference: %v", err)
 	}
@@ -250,8 +253,8 @@ func (r *SQLiteRepository) AddNoteReferece(categoryId string, title string, text
 	defer tx.Rollback()
 
 	result, err := tx.Exec(`
-		INSERT INTO base_references (category_id, title, reference_type)
-		VALUES (?, ?, ?)`, categoryId, title, NoteReferenceType)
+		INSERT INTO base_references (category_id, title)
+		VALUES (?, ?)`, categoryId, title)
 	if err != nil {
 		return model.NoteReference{}, fmt.Errorf("error inserting base reference: %v", err)
 	}
