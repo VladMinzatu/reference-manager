@@ -10,6 +10,14 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type ReferenceType string
+
+const (
+	BookReferenceType ReferenceType = "book"
+	LinkReferenceType ReferenceType = "link"
+	NoteReferenceType ReferenceType = "note"
+)
+
 type SQLiteRepository struct {
 	db *sql.DB
 }
@@ -116,12 +124,12 @@ func (r *SQLiteRepository) GetRefereces(categoryId string) ([]model.Reference, e
 			return nil, fmt.Errorf("error scanning reference: %v", err)
 		}
 
-		switch model.ReferenceType(refType) {
-		case model.BookReferenceType:
+		switch ReferenceType(refType) {
+		case BookReferenceType:
 			references = append(references, model.BookReference{Id: id, Title: title, ISBN: isbn})
-		case model.LinkReferenceType:
+		case LinkReferenceType:
 			references = append(references, model.LinkReference{Id: id, Title: title, URL: url, Description: description})
-		case model.NoteReferenceType:
+		case NoteReferenceType:
 			references = append(references, model.NoteReference{Id: id, Title: title, Text: text})
 		}
 	}
@@ -137,7 +145,7 @@ func (r *SQLiteRepository) AddBookReferece(categoryId string, title string, isbn
 
 	result, err := tx.Exec(`
 		INSERT INTO base_references (category_id, title, reference_type) 
-		VALUES (?, ?, ?)`, categoryId, title, model.BookReferenceType)
+		VALUES (?, ?, ?)`, categoryId, title, BookReferenceType)
 	if err != nil {
 		return model.BookReference{}, fmt.Errorf("error inserting base reference: %v", err)
 	}
@@ -190,7 +198,7 @@ func (r *SQLiteRepository) AddLinkReferece(categoryId string, title string, url 
 
 	result, err := tx.Exec(`
 		INSERT INTO base_references (category_id, title, reference_type)
-		VALUES (?, ?, ?)`, categoryId, title, model.LinkReferenceType)
+		VALUES (?, ?, ?)`, categoryId, title, LinkReferenceType)
 	if err != nil {
 		return model.LinkReference{}, fmt.Errorf("error inserting base reference: %v", err)
 	}
@@ -243,7 +251,7 @@ func (r *SQLiteRepository) AddNoteReferece(categoryId string, title string, text
 
 	result, err := tx.Exec(`
 		INSERT INTO base_references (category_id, title, reference_type)
-		VALUES (?, ?, ?)`, categoryId, title, model.NoteReferenceType)
+		VALUES (?, ?, ?)`, categoryId, title, NoteReferenceType)
 	if err != nil {
 		return model.NoteReference{}, fmt.Errorf("error inserting base reference: %v", err)
 	}

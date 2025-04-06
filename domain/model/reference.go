@@ -1,13 +1,5 @@
 package model
 
-type ReferenceType string
-
-const (
-	BookReferenceType ReferenceType = "book"
-	LinkReferenceType ReferenceType = "link"
-	NoteReferenceType ReferenceType = "note"
-)
-
 type Reference interface {
 	Render(renderer Renderer) // this is a classic Visitor pattern
 }
