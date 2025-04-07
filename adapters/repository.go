@@ -305,33 +305,27 @@ func (r *SQLiteRepository) ReorderCategories(positions map[string]int) error {
 	}
 	defer tx.Rollback()
 
-	valueStrings := make([]string, len(positions))
-	valueArgs := make([]interface{}, len(positions)*2)
-	i := 0
-	for id, pos := range positions {
-		valueStrings[i] = "(?, ?)"
-		valueArgs[i*2] = id
-		valueArgs[i*2+1] = pos
-		i++
-	}
+	valueStrings, valueArgs := r.preparePositionArgs(positions)
 
-	query := fmt.Sprintf(`
-		WITH updated_items (category_id, new_position) AS (
-			VALUES %s
-		),
-		validation AS (
-			SELECT COUNT(*) as unmatched_count
-			FROM categories c
-			LEFT JOIN updated_items ui ON c.id = ui.category_id
-			WHERE ui.category_id IS NULL
-		)
-		UPDATE category_positions cp
-		SET position = ui.new_position
-		FROM updated_items ui, validation v
-		WHERE cp.category_id = ui.category_id
-		AND v.unmatched_count = 0`, strings.Join(valueStrings, ","))
+	validationQuery := `
+    	SELECT 
+        (SELECT COUNT(*) 
+         FROM categories c
+         LEFT JOIN input_values ui(category_id, new_position) ON c.id = ui.category_id
+         WHERE ui.category_id IS NULL) as missing_positions,
+        (SELECT COUNT(*) 
+         FROM input_values ui(category_id, new_position)
+         LEFT JOIN categories c ON c.id = ui.category_id
+         WHERE c.id IS NULL) as invalid_categories`
 
-	result, err := tx.Exec(query, valueArgs...)
+	updateTable := "category_positions cp"
+	updateConditions := `cp.category_id = ui.category_id
+		AND v.missing_positions = 0
+		AND v.invalid_categories = 0`
+
+	query := r.buildPositionUpdateQuery(valueStrings, validationQuery, updateTable, updateConditions)
+
+	result, err := tx.Exec(query, append(valueArgs, valueArgs...)...)
 	if err != nil {
 		return fmt.Errorf("error updating category positions: %v", err)
 	}
@@ -355,14 +349,71 @@ func (r *SQLiteRepository) ReorderReferences(categoryId string, positions map[st
 	}
 	defer tx.Rollback()
 
-	for id, pos := range positions {
-		_, err := tx.Exec(`
-			INSERT OR REPLACE INTO reference_positions (reference_id, category_id, position) 
-			VALUES (?, ?, ?)`, id, categoryId, pos)
-		if err != nil {
-			return fmt.Errorf("error updating reference position: %v", err)
-		}
+	valueStrings, valueArgs := r.preparePositionArgs(positions)
+
+	validationQuery := `
+        SELECT 
+            (SELECT COUNT(*) 
+             FROM base_references r
+             LEFT JOIN input_values ui(reference_id, new_position) ON r.id = ui.reference_id
+             WHERE r.category_id = ? AND ui.reference_id IS NULL) as missing_positions,
+            (SELECT COUNT(*) 
+             FROM input_values ui(reference_id, new_position)
+             LEFT JOIN base_references r ON r.id = ui.reference_id
+             WHERE r.category_id != ? OR r.id IS NULL) as invalid_references`
+
+	updateTable := "reference_positions rp"
+	updateConditions := `rp.reference_id = ui.reference_id
+    AND rp.category_id = ?
+    AND v.missing_positions = 0
+    AND v.invalid_references = 0`
+
+	query := r.buildPositionUpdateQuery(valueStrings, validationQuery, updateTable, updateConditions)
+
+	result, err := tx.Exec(query, append(append(valueArgs, categoryId, categoryId), append(valueArgs, categoryId)...)...)
+	if err != nil {
+		return fmt.Errorf("error updating reference positions: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error getting rows affected: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no positions were updated - some references may be missing or invalid")
 	}
 
 	return tx.Commit()
+}
+
+func (r *SQLiteRepository) buildPositionUpdateQuery(valueStrings []string, validationQuery string, updateTable string, updateConditions string) string {
+	// Since we are using sqlite, having nested SELECT validation queries is safe due to sqlite's db-level concurrency model
+	// However, if we were using PG, this query would not be free of race conditions with concurrent transactions adding/removing references/categories.
+	// We'd have to lock the affected rows while their positions are updated, and that can be done with SELECT...FOR UPDATE statements. Would also allow us to split this into separate queries and make the code more readable.
+	// But since we don't have the option to write it that way in sqlite (and we don't need to either), here goes...
+	return fmt.Sprintf(`
+    WITH input_values AS (
+    VALUES %s
+    ),
+    validation AS (
+        %s
+    )
+    UPDATE %s
+    SET position = ui.new_position
+    FROM (VALUES %s) AS ui(reference_id, new_position), validation v
+    WHERE %s`, strings.Join(valueStrings, ","), validationQuery, updateTable, strings.Join(valueStrings, ","), updateConditions)
+}
+
+func (r *SQLiteRepository) preparePositionArgs(positions map[string]int) ([]string, []interface{}) {
+	valueStrings := make([]string, len(positions))
+	valueArgs := make([]interface{}, len(positions)*2)
+	i := 0
+	for id, pos := range positions {
+		valueStrings[i] = "(?, ?)"
+		valueArgs[i*2] = id
+		valueArgs[i*2+1] = pos
+		i++
+	}
+	return valueStrings, valueArgs
 }
