@@ -65,7 +65,7 @@ func (r *SQLiteRepository) AddCategory(name string) (model.Category, error) {
 	// Get next position from sequence and lock
 	var position int
 	err = tx.QueryRow(`
-		INSERT INTO category_position_sequence (id, next_position) 
+		INSERT INTO category_position_sequences (id, next_position) 
 		VALUES (1, 0)
 		ON CONFLICT (id) DO UPDATE 
 		SET next_position = next_position + 1
@@ -209,8 +209,8 @@ func (r *SQLiteRepository) addBaseReference(categoryId string, title string) (in
 	// Get next position from sequence and lock
 	var position int
 	err = tx.QueryRow(`
-		INSERT INTO reference_position_sequence (category_id, next_position) 
-		VALUES (?, 1)
+		INSERT INTO reference_position_sequences (category_id, next_position) 
+		VALUES (?, 0)
 		ON CONFLICT (category_id) DO UPDATE 
 		SET next_position = next_position + 1
 		RETURNING next_position`, categoryId).Scan(&position)

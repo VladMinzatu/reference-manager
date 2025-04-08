@@ -11,7 +11,7 @@ CREATE TABLE reference_position_sequences (
     PRIMARY KEY (category_id)
 );
 
-INSERT INTO category_position_sequence (id, next_position) VALUES (1, 0);
+INSERT INTO category_position_sequences (id, next_position) VALUES (1, 0);
 -- +goose StatementEnd
 
 -- +goose Down
