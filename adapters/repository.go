@@ -140,85 +140,73 @@ func (r *SQLiteRepository) GetRefereces(categoryId string) ([]model.Reference, e
 }
 
 func (r *SQLiteRepository) AddBookReferece(categoryId string, title string, isbn string) (model.BookReference, error) {
-	tx, err := r.db.Begin()
+	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.BookReference{}, err
 	}
-	defer tx.Rollback()
 
-	result, err := tx.Exec(`
-		INSERT INTO base_references (category_id, title) 
-		VALUES (?, ?)`, categoryId, title)
-	if err != nil {
-		return model.BookReference{}, fmt.Errorf("error inserting base reference: %v", err)
-	}
-
-	refId, err := result.LastInsertId()
-	if err != nil {
-		return model.BookReference{}, fmt.Errorf("error getting last insert id: %v", err)
-	}
-
-	_, err = tx.Exec(`
+	_, err = r.db.Exec(`
 		INSERT INTO book_references (reference_id, isbn)
 		VALUES (?, ?)`, refId, isbn)
 	if err != nil {
 		return model.BookReference{}, fmt.Errorf("error inserting book reference: %v", err)
 	}
 
-	// Get next position from sequence and lock
-	var position int
-	err = tx.QueryRow(`
-		INSERT INTO reference_position_sequence (category_id, next_position) 
-		VALUES (?, 1)
-		ON CONFLICT (category_id) DO UPDATE 
-		SET next_position = next_position + 1
-		RETURNING next_position`, categoryId).Scan(&position)
-	if err != nil {
-		return model.BookReference{}, fmt.Errorf("error getting next position: %v", err)
-	}
-
-	// Insert position
-	_, err = tx.Exec(`
-		INSERT INTO reference_positions (reference_id, category_id, position)
-		VALUES (?, ?, ?)`, refId, categoryId, position)
-	if err != nil {
-		return model.BookReference{}, fmt.Errorf("error inserting reference position: %v", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return model.BookReference{}, fmt.Errorf("error committing transaction: %v", err)
-	}
-
 	return model.BookReference{Id: refId, Title: title, ISBN: isbn}, nil
 }
 
 func (r *SQLiteRepository) AddLinkReferece(categoryId string, title string, url string, description string) (model.LinkReference, error) {
-	tx, err := r.db.Begin()
+	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.LinkReference{}, err
 	}
-	defer tx.Rollback()
 
-	result, err := tx.Exec(`
-		INSERT INTO base_references (category_id, title)
-		VALUES (?, ?)`, categoryId, title)
-	if err != nil {
-		return model.LinkReference{}, fmt.Errorf("error inserting base reference: %v", err)
-	}
-
-	refId, err := result.LastInsertId()
-	if err != nil {
-		return model.LinkReference{}, fmt.Errorf("error getting last insert id: %v", err)
-	}
-
-	_, err = tx.Exec(`
+	_, err = r.db.Exec(`
 		INSERT INTO link_references (reference_id, url, description)
 		VALUES (?, ?, ?)`, refId, url, description)
 	if err != nil {
 		return model.LinkReference{}, fmt.Errorf("error inserting link reference: %v", err)
 	}
 
-	// Get next position from sequence
+	return model.LinkReference{Id: refId, Title: title, URL: url, Description: description}, nil
+}
+
+func (r *SQLiteRepository) AddNoteReferece(categoryId string, title string, text string) (model.NoteReference, error) {
+	refId, err := r.addBaseReference(categoryId, title)
+	if err != nil {
+		return model.NoteReference{}, err
+	}
+
+	_, err = r.db.Exec(`
+		INSERT INTO note_references (reference_id, text)
+		VALUES (?, ?)`, refId, text)
+	if err != nil {
+		return model.NoteReference{}, fmt.Errorf("error inserting note reference: %v", err)
+	}
+
+	return model.NoteReference{Id: refId, Title: title, Text: text}, nil
+}
+
+func (r *SQLiteRepository) addBaseReference(categoryId string, title string) (int64, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec(`
+		INSERT INTO base_references (category_id, title)
+		VALUES (?, ?)`, categoryId, title)
+	if err != nil {
+		return 0, fmt.Errorf("error inserting base reference: %v", err)
+	}
+
+	refId, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("error getting last insert id: %v", err)
+	}
+
+	// Get next position from sequence and lock
 	var position int
 	err = tx.QueryRow(`
 		INSERT INTO reference_position_sequence (category_id, next_position) 
@@ -227,7 +215,7 @@ func (r *SQLiteRepository) AddLinkReferece(categoryId string, title string, url 
 		SET next_position = next_position + 1
 		RETURNING next_position`, categoryId).Scan(&position)
 	if err != nil {
-		return model.LinkReference{}, fmt.Errorf("error getting next position: %v", err)
+		return 0, fmt.Errorf("error getting next position: %v", err)
 	}
 
 	// Insert position
@@ -235,67 +223,14 @@ func (r *SQLiteRepository) AddLinkReferece(categoryId string, title string, url 
 		INSERT INTO reference_positions (reference_id, category_id, position)
 		VALUES (?, ?, ?)`, refId, categoryId, position)
 	if err != nil {
-		return model.LinkReference{}, fmt.Errorf("error inserting reference position: %v", err)
+		return 0, fmt.Errorf("error inserting reference position: %v", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return model.LinkReference{}, fmt.Errorf("error committing transaction: %v", err)
+		return 0, fmt.Errorf("error committing transaction: %v", err)
 	}
 
-	return model.LinkReference{Id: refId, Title: title, URL: url, Description: description}, nil
-}
-
-func (r *SQLiteRepository) AddNoteReferece(categoryId string, title string, text string) (model.NoteReference, error) {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return model.NoteReference{}, err
-	}
-	defer tx.Rollback()
-
-	result, err := tx.Exec(`
-		INSERT INTO base_references (category_id, title)
-		VALUES (?, ?)`, categoryId, title)
-	if err != nil {
-		return model.NoteReference{}, fmt.Errorf("error inserting base reference: %v", err)
-	}
-
-	refId, err := result.LastInsertId()
-	if err != nil {
-		return model.NoteReference{}, fmt.Errorf("error getting last insert id: %v", err)
-	}
-
-	_, err = tx.Exec(`
-		INSERT INTO note_references (reference_id, text)
-		VALUES (?, ?)`, refId, text)
-	if err != nil {
-		return model.NoteReference{}, fmt.Errorf("error inserting note reference: %v", err)
-	}
-
-	// Get next position from sequence and lock
-	var position int
-	err = tx.QueryRow(`
-		INSERT INTO reference_position_sequence (category_id, next_position) 
-		VALUES (?, 0)
-		ON CONFLICT (category_id) DO UPDATE 
-		SET next_position = next_position + 1
-		RETURNING next_position`, categoryId).Scan(&position)
-	if err != nil {
-		return model.NoteReference{}, fmt.Errorf("error getting next position: %v", err)
-	}
-
-	// Insert position
-	_, err = tx.Exec(`
-		INSERT INTO reference_positions (reference_id, category_id, position)
-		VALUES (?, ?, ?)`, refId, categoryId, position)
-	if err != nil {
-		return model.NoteReference{}, fmt.Errorf("error inserting reference position: %v", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return model.NoteReference{}, fmt.Errorf("error committing transaction: %v", err)
-	}
-
-	return model.NoteReference{Id: refId, Title: title, Text: text}, nil
+	return refId, nil
 }
 
 func (r *SQLiteRepository) ReorderCategories(positions map[string]int) error {
