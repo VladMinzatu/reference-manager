@@ -14,13 +14,8 @@ type SQLiteRepository struct {
 	db *sql.DB
 }
 
-func NewSQLiteRepository(dbPath string) (repository.Repository, error) {
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("error opening database: %v", err)
-	}
-
-	return &SQLiteRepository{db: db}, nil
+func NewSQLiteRepository(db *sql.DB) repository.Repository {
+	return &SQLiteRepository{db: db}
 }
 
 func (r *SQLiteRepository) GetAllCategories() ([]model.Category, error) {
