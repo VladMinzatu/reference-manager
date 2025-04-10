@@ -228,7 +228,7 @@ func (r *SQLiteRepository) addBaseReference(categoryId string, title string) (in
 	return refId, nil
 }
 
-func (r *SQLiteRepository) ReorderCategories(positions map[string]int) error {
+func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -237,24 +237,25 @@ func (r *SQLiteRepository) ReorderCategories(positions map[string]int) error {
 
 	valueStrings, valueArgs := r.preparePositionArgs(positions)
 
-	validationQuery := `
-    	SELECT 
-        (SELECT COUNT(*) 
-         FROM categories c
-         LEFT JOIN input_values ui(category_id, new_position) ON c.id = ui.category_id
-         WHERE ui.category_id IS NULL) as missing_positions,
-        (SELECT COUNT(*) 
-         FROM input_values ui(category_id, new_position)
-         LEFT JOIN categories c ON c.id = ui.category_id
-         WHERE c.id IS NULL) as invalid_categories`
+	missingIdsQuery := `
+    SELECT COUNT(*) AS missing_categories
+      FROM categories c
+      LEFT JOIN input_values ui ON c.id = ui.category_id
+      WHERE ui.category_id IS NULL`
 
-	updateTable := "category_positions cp"
+	invalidIdsQuery := `
+		SELECT COUNT(*) AS invalid_categories
+      FROM input_values ui
+      LEFT JOIN categories c ON c.id = ui.category_id
+      WHERE c.id IS NULL`
+
+	updateTable := "category_positions AS cp"
 	updateConditions := `cp.category_id = ui.category_id
-		AND v.missing_positions = 0
-		AND v.invalid_categories = 0`
+		AND missing_categories = 0
+		AND invalid_categories = 0`
 
-	query := r.buildPositionUpdateQuery(valueStrings, validationQuery, updateTable, updateConditions)
-
+	query := r.buildPositionUpdateQuery(valueStrings, missingIdsQuery, invalidIdsQuery, updateTable, updateConditions)
+	//log.Fatal(query)
 	result, err := tx.Exec(query, append(valueArgs, valueArgs...)...)
 	if err != nil {
 		return fmt.Errorf("error updating category positions: %v", err)
@@ -272,7 +273,7 @@ func (r *SQLiteRepository) ReorderCategories(positions map[string]int) error {
 	return tx.Commit()
 }
 
-func (r *SQLiteRepository) ReorderReferences(categoryId string, positions map[string]int) error {
+func (r *SQLiteRepository) ReorderReferences(categoryId string, positions map[int64]int) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -281,24 +282,24 @@ func (r *SQLiteRepository) ReorderReferences(categoryId string, positions map[st
 
 	valueStrings, valueArgs := r.preparePositionArgs(positions)
 
-	validationQuery := `
-        SELECT 
-            (SELECT COUNT(*) 
-             FROM base_references r
-             LEFT JOIN input_values ui(reference_id, new_position) ON r.id = ui.reference_id
-             WHERE r.category_id = ? AND ui.reference_id IS NULL) as missing_positions,
-            (SELECT COUNT(*) 
-             FROM input_values ui(reference_id, new_position)
-             LEFT JOIN base_references r ON r.id = ui.reference_id
-             WHERE r.category_id != ? OR r.id IS NULL) as invalid_references`
+	missingIdsQuery := `
+    SELECT COUNT(*) AS missing_references
+      FROM base_references r
+      LEFT JOIN input_values ui ON r.id = ui.reference_id
+      WHERE r.category_id = ? AND ui.reference_id IS NULL `
+	invalidIdsQuery := `
+		SELECT COUNT(*) AS invalid_references
+      FROM input_values ui
+      LEFT JOIN base_references r ON r.id = ui.reference_id
+      WHERE r.category_id != ? OR r.id IS NULL`
 
-	updateTable := "reference_positions rp"
+	updateTable := "reference_positions AS rp"
 	updateConditions := `rp.reference_id = ui.reference_id
     AND rp.category_id = ?
-    AND v.missing_positions = 0
-    AND v.invalid_references = 0`
+    AND missing_references = 0
+    AND invalid_references = 0`
 
-	query := r.buildPositionUpdateQuery(valueStrings, validationQuery, updateTable, updateConditions)
+	query := r.buildPositionUpdateQuery(valueStrings, missingIdsQuery, invalidIdsQuery, updateTable, updateConditions)
 
 	result, err := tx.Exec(query, append(append(valueArgs, categoryId, categoryId), append(valueArgs, categoryId)...)...)
 	if err != nil {
@@ -317,25 +318,28 @@ func (r *SQLiteRepository) ReorderReferences(categoryId string, positions map[st
 	return tx.Commit()
 }
 
-func (r *SQLiteRepository) buildPositionUpdateQuery(valueStrings []string, validationQuery string, updateTable string, updateConditions string) string {
+func (r *SQLiteRepository) buildPositionUpdateQuery(valueStrings []string, missingIdsQuery string, invalidIdsQuery string, updateTable string, updateConditions string) string {
 	// Since we are using sqlite, having nested SELECT validation queries is safe due to sqlite's db-level concurrency model
 	// However, if we were using PG, this query would not be free of race conditions with concurrent transactions adding/removing references/categories.
 	// We'd have to lock the affected rows while their positions are updated, and that can be done with SELECT...FOR UPDATE statements. Would also allow us to split this into separate queries and make the code more readable.
 	// But since we don't have the option to write it that way in sqlite (and we don't need to either), here goes...
 	return fmt.Sprintf(`
-    WITH input_values AS (
+    WITH input_values(category_id, new_position) AS (
     VALUES %s
     ),
-    validation AS (
+    missing_ids_validations AS (
         %s
-    )
+    ),
+		invalid_ids_validation AS (
+				%s
+		)
     UPDATE %s
     SET position = ui.new_position
-    FROM (VALUES %s) AS ui(reference_id, new_position), validation v
-    WHERE %s`, strings.Join(valueStrings, ","), validationQuery, updateTable, strings.Join(valueStrings, ","), updateConditions)
+    FROM input_values ui, missing_ids_validations, invalid_ids_validation
+    WHERE %s`, strings.Join(valueStrings, ","), missingIdsQuery, invalidIdsQuery, updateTable, updateConditions)
 }
 
-func (r *SQLiteRepository) preparePositionArgs(positions map[string]int) ([]string, []interface{}) {
+func (r *SQLiteRepository) preparePositionArgs(positions map[int64]int) ([]string, []interface{}) {
 	valueStrings := make([]string, len(positions))
 	valueArgs := make([]interface{}, len(positions)*2)
 	i := 0

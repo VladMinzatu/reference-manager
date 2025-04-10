@@ -12,7 +12,6 @@ CREATE TABLE categories (
 CREATE TABLE category_positions (
     category_id INTEGER PRIMARY KEY,
     position INTEGER NOT NULL,
-    UNIQUE(position),
     FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
@@ -46,7 +45,6 @@ CREATE TABLE reference_positions (
     reference_id INTEGER PRIMARY KEY,
     category_id INTEGER NOT NULL,
     position INTEGER NOT NULL,
-    UNIQUE(category_id, position),
     FOREIGN KEY (reference_id) REFERENCES base_references(id),
     FOREIGN KEY (category_id) REFERENCES categories(id)
 );

@@ -42,12 +42,12 @@ func (m *MockRepository) AddNoteReferece(categoryId string, title string, text s
 	return args.Get(0).(model.NoteReference), args.Error(1)
 }
 
-func (m *MockRepository) ReorderReferences(categoryId string, positions map[string]int) error {
+func (m *MockRepository) ReorderReferences(categoryId string, positions map[int64]int) error {
 	args := m.Called(categoryId, positions)
 	return args.Error(0)
 }
 
-func (m *MockRepository) ReorderCategories(positions map[string]int) error {
+func (m *MockRepository) ReorderCategories(positions map[int64]int) error {
 	args := m.Called(positions)
 	return args.Error(0)
 }
@@ -88,10 +88,10 @@ func TestReorderCategories_ValidPositions(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	positions := map[string]int{
-		"cat1": 0,
-		"cat2": 1,
-		"cat3": 2,
+	positions := map[int64]int{
+		1: 0,
+		2: 1,
+		3: 2,
 	}
 
 	mockRepo.On("ReorderCategories", positions).Return(nil)
@@ -106,20 +106,20 @@ func TestReorderCategories_InvalidPositions(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	positions := map[string]int{
-		"cat1": 0,
-		"cat2": 0, // duplicate position
-		"cat3": 2,
+	positions := map[int64]int{
+		1: 0,
+		2: 0, // duplicate position
+		3: 2,
 	}
 
 	err := service.ReorderCategories(positions)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate position value")
 
-	positions = map[string]int{
-		"cat1": 0,
-		"cat2": 5, // position >= len(positions)
-		"cat3": 2,
+	positions = map[int64]int{
+		1: 0,
+		2: 5, // position >= len(positions)
+		3: 2,
 	}
 
 	err = service.ReorderCategories(positions)
@@ -131,10 +131,10 @@ func TestReorderReferences_ValidPositions(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	positions := map[string]int{
-		"ref1": 0,
-		"ref2": 1,
-		"ref3": 2,
+	positions := map[int64]int{
+		1: 0,
+		2: 1,
+		3: 2,
 	}
 
 	mockRepo.On("ReorderReferences", "cat1", positions).Return(nil)
@@ -149,20 +149,20 @@ func TestReorderReferences_InvalidPositions(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	positions := map[string]int{
-		"ref1": 0,
-		"ref2": 0, // duplicate position
-		"ref3": 2,
+	positions := map[int64]int{
+		1: 0,
+		2: 0, // duplicate position
+		3: 2,
 	}
 
 	err := service.ReorderReferences("cat1", positions)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate position value")
 
-	positions = map[string]int{
-		"ref1": 0,
-		"ref2": 5, // position >= len(positions)
-		"ref3": 2,
+	positions = map[int64]int{
+		1: 0,
+		2: 5, // position >= len(positions)
+		3: 2,
 	}
 
 	err = service.ReorderReferences("cat1", positions)
