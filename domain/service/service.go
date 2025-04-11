@@ -24,19 +24,19 @@ func (s *ReferenceService) AddCategory(name string) (model.Category, error) {
 	return s.repo.AddCategory(name)
 }
 
-func (s *ReferenceService) GetReferences(categoryId string) ([]model.Reference, error) {
+func (s *ReferenceService) GetReferences(categoryId int64) ([]model.Reference, error) {
 	return s.repo.GetRefereces(categoryId)
 }
 
-func (s *ReferenceService) AddBookReference(categoryId string, title string, isbn string) (model.BookReference, error) {
+func (s *ReferenceService) AddBookReference(categoryId int64, title string, isbn string) (model.BookReference, error) {
 	return s.repo.AddBookReferece(categoryId, title, isbn)
 }
 
-func (s *ReferenceService) AddLinkReference(categoryId string, title string, url string, description string) (model.LinkReference, error) {
+func (s *ReferenceService) AddLinkReference(categoryId int64, title string, url string, description string) (model.LinkReference, error) {
 	return s.repo.AddLinkReferece(categoryId, title, url, description)
 }
 
-func (s *ReferenceService) AddNoteReference(categoryId string, title string, text string) (model.NoteReference, error) {
+func (s *ReferenceService) AddNoteReference(categoryId int64, title string, text string) (model.NoteReference, error) {
 	return s.repo.AddNoteReferece(categoryId, title, text)
 }
 
@@ -47,7 +47,7 @@ func (s *ReferenceService) ReorderCategories(positions map[int64]int) error {
 	return s.repo.ReorderCategories(positions)
 }
 
-func (s *ReferenceService) ReorderReferences(categoryId string, positions map[int64]int) error {
+func (s *ReferenceService) ReorderReferences(categoryId int64, positions map[int64]int) error {
 	if err := validatePositions(positions); err != nil {
 		return err
 	}

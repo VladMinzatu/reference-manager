@@ -84,7 +84,7 @@ func (r *SQLiteRepository) AddCategory(name string) (model.Category, error) {
 	return model.Category{Id: id, Name: name}, nil
 }
 
-func (r *SQLiteRepository) GetRefereces(categoryId string) ([]model.Reference, error) {
+func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, error) {
 	const (
 		BOOK_TYPE = "book"
 		LINK_TYPE = "link"
@@ -134,7 +134,7 @@ func (r *SQLiteRepository) GetRefereces(categoryId string) ([]model.Reference, e
 	return references, nil
 }
 
-func (r *SQLiteRepository) AddBookReferece(categoryId string, title string, isbn string) (model.BookReference, error) {
+func (r *SQLiteRepository) AddBookReferece(categoryId int64, title string, isbn string) (model.BookReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.BookReference{}, err
@@ -150,7 +150,7 @@ func (r *SQLiteRepository) AddBookReferece(categoryId string, title string, isbn
 	return model.BookReference{Id: refId, Title: title, ISBN: isbn}, nil
 }
 
-func (r *SQLiteRepository) AddLinkReferece(categoryId string, title string, url string, description string) (model.LinkReference, error) {
+func (r *SQLiteRepository) AddLinkReferece(categoryId int64, title string, url string, description string) (model.LinkReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.LinkReference{}, err
@@ -166,7 +166,7 @@ func (r *SQLiteRepository) AddLinkReferece(categoryId string, title string, url 
 	return model.LinkReference{Id: refId, Title: title, URL: url, Description: description}, nil
 }
 
-func (r *SQLiteRepository) AddNoteReferece(categoryId string, title string, text string) (model.NoteReference, error) {
+func (r *SQLiteRepository) AddNoteReferece(categoryId int64, title string, text string) (model.NoteReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.NoteReference{}, err
@@ -182,7 +182,7 @@ func (r *SQLiteRepository) AddNoteReferece(categoryId string, title string, text
 	return model.NoteReference{Id: refId, Title: title, Text: text}, nil
 }
 
-func (r *SQLiteRepository) addBaseReference(categoryId string, title string) (int64, error) {
+func (r *SQLiteRepository) addBaseReference(categoryId int64, title string) (int64, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return 0, err
@@ -273,7 +273,7 @@ func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {
 	return tx.Commit()
 }
 
-func (r *SQLiteRepository) ReorderReferences(categoryId string, positions map[int64]int) error {
+func (r *SQLiteRepository) ReorderReferences(categoryId int64, positions map[int64]int) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
