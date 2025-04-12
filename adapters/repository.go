@@ -240,17 +240,17 @@ func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {
 	missingIdsQuery := `
     SELECT COUNT(*) AS missing_categories
       FROM categories c
-      LEFT JOIN input_values ui ON c.id = ui.category_id
-      WHERE ui.category_id IS NULL`
+      LEFT JOIN input_values ui ON c.id = ui.input_id
+      WHERE ui.input_id IS NULL`
 
 	invalidIdsQuery := `
 		SELECT COUNT(*) AS invalid_categories
       FROM input_values ui
-      LEFT JOIN categories c ON c.id = ui.category_id
+      LEFT JOIN categories c ON c.id = ui.input_id
       WHERE c.id IS NULL`
 
 	updateTable := "category_positions AS cp"
-	updateConditions := `cp.category_id = ui.category_id
+	updateConditions := `cp.category_id = ui.input_id
 		AND missing_categories = 0
 		AND invalid_categories = 0`
 
@@ -285,16 +285,16 @@ func (r *SQLiteRepository) ReorderReferences(categoryId int64, positions map[int
 	missingIdsQuery := `
     SELECT COUNT(*) AS missing_references
       FROM base_references r
-      LEFT JOIN input_values ui ON r.id = ui.reference_id
-      WHERE r.category_id = ? AND ui.reference_id IS NULL `
+      LEFT JOIN input_values ui ON r.id = ui.input_id
+      WHERE r.category_id = ? AND ui.input_id IS NULL`
 	invalidIdsQuery := `
 		SELECT COUNT(*) AS invalid_references
       FROM input_values ui
-      LEFT JOIN base_references r ON r.id = ui.reference_id
-      WHERE r.category_id != ? OR r.id IS NULL`
+      LEFT JOIN base_references r ON r.id = ui.input_id AND r.category_id = ?
+      WHERE r.id IS NULL`
 
 	updateTable := "reference_positions AS rp"
-	updateConditions := `rp.reference_id = ui.reference_id
+	updateConditions := `rp.reference_id = ui.input_id
     AND rp.category_id = ?
     AND missing_references = 0
     AND invalid_references = 0`
@@ -324,7 +324,7 @@ func (r *SQLiteRepository) buildPositionUpdateQuery(valueStrings []string, missi
 	// We'd have to lock the affected rows while their positions are updated, and that can be done with SELECT...FOR UPDATE statements. Would also allow us to split this into separate queries and make the code more readable.
 	// But since we don't have the option to write it that way in sqlite (and we don't need to either), here goes...
 	return fmt.Sprintf(`
-    WITH input_values(category_id, new_position) AS (
+    WITH input_values(input_id, new_position) AS (
     VALUES %s
     ),
     missing_ids_validations AS (

@@ -79,47 +79,51 @@ func TestReorderingCategories(t *testing.T) {
 	categories, err := repo.GetAllCategories()
 	require.NoError(t, err)
 	assert.Equal(t, []model.Category{cat1, cat2, cat3}, categories)
+	t.Run("successful reordering", func(t *testing.T) {
+		// Reorder categories - move cat3 to first position
+		positions := map[int64]int{
+			cat3.Id: 0,
+			cat1.Id: 1,
+			cat2.Id: 2,
+		}
+		err = repo.ReorderCategories(positions)
+		require.NoError(t, err)
 
-	// Reorder categories - move cat3 to first position
-	positions := map[int64]int{
-		cat3.Id: 0,
-		cat1.Id: 1,
-		cat2.Id: 2,
-	}
-	err = repo.ReorderCategories(positions)
-	require.NoError(t, err)
+		// Verify new order
+		categories, err = repo.GetAllCategories()
+		require.NoError(t, err)
+		assert.Equal(t, []model.Category{cat3, cat1, cat2}, categories)
+	})
 
-	// Verify new order
-	categories, err = repo.GetAllCategories()
-	require.NoError(t, err)
-	assert.Equal(t, []model.Category{cat3, cat1, cat2}, categories)
+	t.Run("missing category", func(t *testing.T) {
+		positions := map[int64]int{
+			cat1.Id: 0,
+			cat2.Id: 1,
+		}
+		err = repo.ReorderCategories(positions)
+		assert.Error(t, err)
+	})
 
-	// Test invalid reordering (missing category)
-	positions = map[int64]int{
-		cat1.Id: 0,
-		cat2.Id: 1,
-	}
-	err = repo.ReorderCategories(positions)
-	assert.Error(t, err)
+	t.Run("invalid category id", func(t *testing.T) {
+		positions := map[int64]int{
+			cat1.Id: 0,
+			cat2.Id: 1,
+			4:       2, // <- unknown category id
+		}
+		err = repo.ReorderCategories(positions)
+		assert.Error(t, err)
+	})
 
-	// Test invalid reordering (invalid category)
-	positions = map[int64]int{
-		cat1.Id: 0,
-		cat2.Id: 1,
-		4:       2, // <- unknown category id
-	}
-	err = repo.ReorderCategories(positions)
-	assert.Error(t, err)
-
-	// Test invalid reordering (invalid category, with all valid categories specified)
-	positions = map[int64]int{
-		cat1.Id: 0,
-		cat2.Id: 1,
-		cat3.Id: 2,
-		4:       3, // <- unknown category id
-	}
-	err = repo.ReorderCategories(positions)
-	assert.Error(t, err)
+	t.Run("invalid category with all valid categories specified", func(t *testing.T) {
+		positions := map[int64]int{
+			cat1.Id: 0,
+			cat2.Id: 1,
+			cat3.Id: 2,
+			4:       3, // <- unknown category id
+		}
+		err = repo.ReorderCategories(positions)
+		assert.Error(t, err)
+	})
 }
 func TestAddAndGetReferences(t *testing.T) {
 	db, cleanup := setupTestDB(t)
@@ -170,4 +174,110 @@ func TestAddAndGetReferences(t *testing.T) {
 	refs, err = repo.GetRefereces(999)
 	require.NoError(t, err)
 	assert.Empty(t, refs)
+}
+func TestReorderReferences(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Create a test category and references
+	repo := NewSQLiteRepository(db)
+	cat, err := repo.AddCategory("Test Category")
+	require.NoError(t, err)
+
+	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884")
+	require.NoError(t, err)
+
+	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
+	require.NoError(t, err)
+
+	note, err := repo.AddNoteReferece(cat.Id, "Embedded & LLVM", "Look up resources.")
+	require.NoError(t, err)
+
+	// Initial order should be book -> link -> note
+	refs, err := repo.GetRefereces(cat.Id)
+	require.NoError(t, err)
+	assert.Equal(t, book.Id, refs[0].(model.BookReference).Id)
+	assert.Equal(t, link.Id, refs[1].(model.LinkReference).Id)
+	assert.Equal(t, note.Id, refs[2].(model.NoteReference).Id)
+
+	t.Run("valid reordering", func(t *testing.T) {
+		// Reorder to note -> book -> link
+		positions := map[int64]int{
+			book.Id: 1,
+			link.Id: 2,
+			note.Id: 0,
+		}
+		err = repo.ReorderReferences(cat.Id, positions)
+		require.NoError(t, err)
+
+		// Verify new order
+		refs, err = repo.GetRefereces(cat.Id)
+		require.NoError(t, err)
+		assert.Equal(t, note.Id, refs[0].(model.NoteReference).Id)
+		assert.Equal(t, book.Id, refs[1].(model.BookReference).Id)
+		assert.Equal(t, link.Id, refs[2].(model.LinkReference).Id)
+	})
+
+	t.Run("missing reference", func(t *testing.T) {
+		invalidPositions := map[int64]int{
+			book.Id: 0,
+			link.Id: 1,
+			999:     2, // non-existent reference
+		}
+		err = repo.ReorderReferences(cat.Id, invalidPositions)
+		assert.Error(t, err)
+	})
+	t.Run("valid references plus non-existent", func(t *testing.T) {
+		invalidPositions := map[int64]int{
+			book.Id: 0,
+			link.Id: 1,
+			note.Id: 2,
+			999:     3, // non-existent reference
+		}
+		err = repo.ReorderReferences(cat.Id, invalidPositions)
+		assert.Error(t, err)
+	})
+
+	otherCat, err := repo.AddCategory("Other Category")
+	require.NoError(t, err)
+	otherBook, err := repo.AddBookReferece(otherCat.Id, "Other Book", "123")
+	require.NoError(t, err)
+	t.Run("reference from different category", func(t *testing.T) {
+		invalidPositions := map[int64]int{
+			book.Id:      0,
+			link.Id:      1,
+			otherBook.Id: 2, // reference from different category
+		}
+		err = repo.ReorderReferences(cat.Id, invalidPositions)
+		assert.Error(t, err)
+	})
+
+	t.Run("all valid references plus one from different category", func(t *testing.T) {
+		invalidPositions := map[int64]int{
+			book.Id:      0,
+			link.Id:      1,
+			note.Id:      2,
+			otherBook.Id: 3, // reference from different category
+		}
+		err = repo.ReorderReferences(cat.Id, invalidPositions)
+		assert.Error(t, err)
+	})
+
+	t.Run("valid reordering when there are other categories and references", func(t *testing.T) {
+		// Reorder to note -> book -> link
+		positions := map[int64]int{
+			book.Id: 2,
+			link.Id: 0,
+			note.Id: 1,
+		}
+		err = repo.ReorderReferences(cat.Id, positions)
+		require.NoError(t, err)
+
+		// Verify new order
+		refs, err = repo.GetRefereces(cat.Id)
+		require.NoError(t, err)
+		assert.Equal(t, link.Id, refs[0].(model.LinkReference).Id)
+		assert.Equal(t, note.Id, refs[1].(model.NoteReference).Id)
+		assert.Equal(t, book.Id, refs[2].(model.BookReference).Id)
+	})
 }
