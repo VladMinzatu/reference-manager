@@ -84,6 +84,58 @@ func (r *SQLiteRepository) AddCategory(name string) (model.Category, error) {
 	return model.Category{Id: id, Name: name}, nil
 }
 
+func (r *SQLiteRepository) DeleteCategory(id int64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Delete the category
+	result, err := tx.Exec("DELETE FROM categories WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("error deleting category: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error getting rows affected: %v", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("category with id %d not found", id)
+	}
+
+	// Reorder/compact remaining categories
+	// Note: if we were using postgres instead of sqlite here, we'd need to lock the rows we're updating first for concurrency
+	// can be easily achieved with another preceding WITH which is a SELECT...FOR UPDATE
+	_, err = tx.Exec(`
+		WITH ranked AS (
+			SELECT category_id, ROW_NUMBER() OVER (ORDER BY position) - 1 as new_pos
+			FROM category_positions
+		)
+		UPDATE category_positions
+		SET position = ranked.new_pos
+		FROM ranked
+		WHERE category_positions.category_id = ranked.category_id`)
+	if err != nil {
+		return fmt.Errorf("error reordering remaining categories: %v", err)
+	}
+
+	// Update the sequence to match the new max position
+	_, err = tx.Exec(`
+		UPDATE category_position_sequences 
+		SET next_position = COALESCE(
+			(SELECT MAX(position) + 1 FROM category_positions),
+			0
+		)
+		WHERE id = 1`)
+	if err != nil {
+		return fmt.Errorf("error updating position sequence: %v", err)
+	}
+
+	return tx.Commit()
+}
+
 func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, error) {
 	const (
 		BOOK_TYPE = "book"
@@ -226,6 +278,68 @@ func (r *SQLiteRepository) addBaseReference(categoryId int64, title string) (int
 	}
 
 	return refId, nil
+}
+
+func (r *SQLiteRepository) DeleteReference(id int64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Get the category_id before deleting (needed for reordering)
+	var categoryId int64
+	err = tx.QueryRow("SELECT category_id FROM base_references WHERE id = ?", id).Scan(&categoryId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("reference with id %d not found", id)
+		}
+		return fmt.Errorf("error getting category id: %v", err)
+	}
+
+	// Delete the reference
+	result, err := tx.Exec("DELETE FROM base_references WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("error deleting reference: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error getting rows affected: %v", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("reference with id %d not found", id)
+	}
+
+	// Reorder remaining references in the category to close any gaps
+	_, err = tx.Exec(`
+		WITH ranked AS (
+			SELECT reference_id, ROW_NUMBER() OVER (ORDER BY position) - 1 as new_pos
+			FROM reference_positions
+			WHERE category_id = ?
+		)
+		UPDATE reference_positions
+		SET position = ranked.new_pos
+		FROM ranked
+		WHERE reference_positions.reference_id = ranked.reference_id
+		AND reference_positions.category_id = ?`, categoryId, categoryId)
+	if err != nil {
+		return fmt.Errorf("error reordering remaining references: %v", err)
+	}
+
+	// Update the sequence to match the new max position
+	_, err = tx.Exec(`
+		UPDATE reference_position_sequences 
+		SET next_position = COALESCE(
+			(SELECT MAX(position) + 1 FROM reference_positions WHERE category_id = ?),
+			0
+		)
+		WHERE category_id = ?`, categoryId, categoryId)
+	if err != nil {
+		return fmt.Errorf("error updating position sequence: %v", err)
+	}
+
+	return tx.Commit()
 }
 
 func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {

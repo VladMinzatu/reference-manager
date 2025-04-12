@@ -24,6 +24,10 @@ func (s *ReferenceService) AddCategory(name string) (model.Category, error) {
 	return s.repo.AddCategory(name)
 }
 
+func (s *ReferenceService) DeleteCategory(id int64) error {
+	return s.repo.DeleteCategory(id)
+}
+
 func (s *ReferenceService) GetReferences(categoryId int64) ([]model.Reference, error) {
 	return s.repo.GetRefereces(categoryId)
 }
@@ -38,6 +42,10 @@ func (s *ReferenceService) AddLinkReference(categoryId int64, title string, url 
 
 func (s *ReferenceService) AddNoteReference(categoryId int64, title string, text string) (model.NoteReference, error) {
 	return s.repo.AddNoteReferece(categoryId, title, text)
+}
+
+func (s *ReferenceService) DeleteReference(id int64) error {
+	return s.repo.DeleteReference(id)
 }
 
 func (s *ReferenceService) ReorderCategories(positions map[int64]int) error {

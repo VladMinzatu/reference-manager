@@ -58,6 +58,59 @@ func TestAddingAndRetrievingCategories(t *testing.T) {
 	expectedCategories := []model.Category{cat1, cat2, cat3}
 	assert.Equal(t, expectedCategories, categories)
 }
+func TestDeletingCategories(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	repo := NewSQLiteRepository(db)
+
+	// Add initial categories
+	cat1, err := repo.AddCategory("Category 1")
+	require.NoError(t, err)
+
+	cat2, err := repo.AddCategory("Category 2")
+	require.NoError(t, err)
+
+	cat3, err := repo.AddCategory("Category 3")
+	require.NoError(t, err)
+
+	// Verify initial state
+	categories, err := repo.GetAllCategories()
+	require.NoError(t, err)
+	assert.Equal(t, []model.Category{cat1, cat2, cat3}, categories)
+
+	t.Run("delete middle category", func(t *testing.T) {
+		err = repo.DeleteCategory(cat2.Id)
+		require.NoError(t, err)
+
+		categories, err = repo.GetAllCategories()
+		require.NoError(t, err)
+		assert.Equal(t, []model.Category{cat1, cat3}, categories)
+	})
+
+	t.Run("delete non-existent category", func(t *testing.T) {
+		err = repo.DeleteCategory(999)
+		assert.Error(t, err)
+	})
+
+	t.Run("delete first category", func(t *testing.T) {
+		err = repo.DeleteCategory(cat1.Id)
+		require.NoError(t, err)
+
+		categories, err = repo.GetAllCategories()
+		require.NoError(t, err)
+		assert.Equal(t, []model.Category{cat3}, categories)
+	})
+
+	t.Run("delete last remaining category", func(t *testing.T) {
+		err = repo.DeleteCategory(cat3.Id)
+		require.NoError(t, err)
+
+		categories, err = repo.GetAllCategories()
+		require.NoError(t, err)
+		assert.Empty(t, categories)
+	})
+}
 
 func TestReorderingCategories(t *testing.T) {
 	db, cleanup := setupTestDB(t)
@@ -175,6 +228,60 @@ func TestAddAndGetReferences(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, refs)
 }
+
+func TestDeletingReferences(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Create a test category and references
+	repo := NewSQLiteRepository(db)
+	cat, err := repo.AddCategory("Test Category")
+	require.NoError(t, err)
+
+	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884")
+	require.NoError(t, err)
+
+	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
+	require.NoError(t, err)
+
+	note, err := repo.AddNoteReferece(cat.Id, "Embedded & LLVM", "Look up resources.")
+	require.NoError(t, err)
+
+	t.Run("delete middle reference", func(t *testing.T) {
+		// Delete the link reference (middle one)
+		err = repo.DeleteReference(link.Id)
+		require.NoError(t, err)
+
+		// Verify remaining references are reordered
+		refs, err := repo.GetRefereces(cat.Id)
+		require.NoError(t, err)
+		assert.Len(t, refs, 2)
+		assert.Equal(t, book.Id, refs[0].(model.BookReference).Id)
+		assert.Equal(t, note.Id, refs[1].(model.NoteReference).Id)
+	})
+
+	t.Run("delete non-existent reference", func(t *testing.T) {
+		err = repo.DeleteReference(999)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "reference with id 999 not found")
+	})
+
+	t.Run("delete remaining references", func(t *testing.T) {
+		// Delete book reference
+		err = repo.DeleteReference(book.Id)
+		require.NoError(t, err)
+
+		// Delete note reference
+		err = repo.DeleteReference(note.Id)
+		require.NoError(t, err)
+
+		// Verify category is empty
+		refs, err := repo.GetRefereces(cat.Id)
+		require.NoError(t, err)
+		assert.Empty(t, refs)
+	})
+}
+
 func TestReorderReferences(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

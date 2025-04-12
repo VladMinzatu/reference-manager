@@ -22,6 +22,11 @@ func (m *MockRepository) AddCategory(name string) (model.Category, error) {
 	return args.Get(0).(model.Category), args.Error(1)
 }
 
+func (m *MockRepository) DeleteCategory(id int64) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
 func (m *MockRepository) GetRefereces(categoryId int64) ([]model.Reference, error) {
 	args := m.Called(categoryId)
 	return args.Get(0).([]model.Reference), args.Error(1)
@@ -40,6 +45,11 @@ func (m *MockRepository) AddLinkReferece(categoryId int64, title string, url str
 func (m *MockRepository) AddNoteReferece(categoryId int64, title string, text string) (model.NoteReference, error) {
 	args := m.Called(categoryId, title, text)
 	return args.Get(0).(model.NoteReference), args.Error(1)
+}
+
+func (m *MockRepository) DeleteReference(id int64) error {
+	args := m.Called(id)
+	return args.Error(0)
 }
 
 func (m *MockRepository) ReorderReferences(categoryId int64, positions map[int64]int) error {
