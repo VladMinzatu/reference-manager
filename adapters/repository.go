@@ -20,10 +20,9 @@ func NewSQLiteRepository(db *sql.DB) repository.Repository {
 
 func (r *SQLiteRepository) GetAllCategories() ([]model.Category, error) {
 	rows, err := r.db.Query(`
-		SELECT c.id, c.name 
-		FROM categories c
-		LEFT JOIN category_positions cp ON c.id = cp.category_id
-		ORDER BY cp.position`)
+		SELECT id, name 
+		FROM categories
+		ORDER BY position`)
 	if err != nil {
 		return nil, fmt.Errorf("error querying categories: %v", err)
 	}
@@ -47,7 +46,13 @@ func (r *SQLiteRepository) AddCategory(name string) (model.Category, error) {
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec("INSERT INTO categories (name) VALUES (?)", name)
+	// Concurrency note: this is safe under the assumption that we use sqlite, because this whole transaction is protected by SQLite's db-level lock
+	// If we were using Postgres, this would have to be modified to lock something, e.g. WITH next_pos AS (SELECT...FOR UPDATE) INSERT INTO categories...
+	// Or with a position_sequence table pattern, which has some performance benefits, but needs more complex management. We'd have to consider the specific use case (here, probably not worth it).
+	result, err := tx.Exec(`
+		INSERT INTO categories (name, position) 
+		SELECT ?, COALESCE(MAX(position) + 1, 0) 
+		FROM categories`, name)
 	if err != nil {
 		return model.Category{}, fmt.Errorf("error inserting category: %v", err)
 	}
@@ -55,26 +60,6 @@ func (r *SQLiteRepository) AddCategory(name string) (model.Category, error) {
 	id, err := result.LastInsertId()
 	if err != nil {
 		return model.Category{}, fmt.Errorf("error getting last insert id: %v", err)
-	}
-
-	// Get next position from sequence and lock
-	var position int
-	err = tx.QueryRow(`
-		INSERT INTO category_position_sequences (id, next_position) 
-		VALUES (1, 0)
-		ON CONFLICT (id) DO UPDATE 
-		SET next_position = next_position + 1
-		RETURNING next_position`).Scan(&position)
-	if err != nil {
-		return model.Category{}, fmt.Errorf("error getting next position: %v", err)
-	}
-
-	// Insert position
-	_, err = tx.Exec(`
-		INSERT INTO category_positions (category_id, position) 
-		VALUES (?, ?)`, id, position)
-	if err != nil {
-		return model.Category{}, fmt.Errorf("error inserting category position: %v", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -91,7 +76,8 @@ func (r *SQLiteRepository) DeleteCategory(id int64) error {
 	}
 	defer tx.Rollback()
 
-	// Delete the category
+	// Again, we're taking a shortcut here that sqlite's transaction handling allows us to take.
+	// If we were using e.g. Postgres, we'd have to reorder the statemets or organise them slightly differently and use SELECT...FOR UPDATE to achieve the necessary locking to make this transaction concurrency safe
 	result, err := tx.Exec("DELETE FROM categories WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("error deleting category: %v", err)
@@ -105,32 +91,18 @@ func (r *SQLiteRepository) DeleteCategory(id int64) error {
 		return fmt.Errorf("category with id %d not found", id)
 	}
 
-	// Reorder/compact remaining categories
-	// Note: if we were using postgres instead of sqlite here, we'd need to lock the rows we're updating first for concurrency
-	// can be easily achieved with another preceding WITH which is a SELECT...FOR UPDATE
+	// Reorder remaining categories to close any gaps
 	_, err = tx.Exec(`
 		WITH ranked AS (
-			SELECT category_id, ROW_NUMBER() OVER (ORDER BY position) - 1 as new_pos
-			FROM category_positions
+			SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 as new_pos
+			FROM categories
 		)
-		UPDATE category_positions
+		UPDATE categories
 		SET position = ranked.new_pos
 		FROM ranked
-		WHERE category_positions.category_id = ranked.category_id`)
+		WHERE categories.id = ranked.id`)
 	if err != nil {
 		return fmt.Errorf("error reordering remaining categories: %v", err)
-	}
-
-	// Update the sequence to match the new max position
-	_, err = tx.Exec(`
-		UPDATE category_position_sequences 
-		SET next_position = COALESCE(
-			(SELECT MAX(position) + 1 FROM category_positions),
-			0
-		)
-		WHERE id = 1`)
-	if err != nil {
-		return fmt.Errorf("error updating position sequence: %v", err)
 	}
 
 	return tx.Commit()
@@ -158,9 +130,8 @@ func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, er
 		LEFT JOIN book_references bk ON br.id = bk.reference_id
 		LEFT JOIN link_references l ON br.id = l.reference_id
 		LEFT JOIN note_references n ON br.id = n.reference_id
-		LEFT JOIN reference_positions rp ON br.id = rp.reference_id
 		WHERE br.category_id = ?
-		ORDER BY rp.position`, BOOK_TYPE, LINK_TYPE, NOTE_TYPE, categoryId)
+		ORDER BY br.position`, BOOK_TYPE, LINK_TYPE, NOTE_TYPE, categoryId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying references: %v", err)
 	}
@@ -242,8 +213,13 @@ func (r *SQLiteRepository) addBaseReference(categoryId int64, title string) (int
 	defer tx.Rollback()
 
 	result, err := tx.Exec(`
-		INSERT INTO base_references (category_id, title)
-		VALUES (?, ?)`, categoryId, title)
+		WITH next_pos AS (
+			SELECT COALESCE(MAX(position) + 1, 0) as pos 
+			FROM base_references 
+			WHERE category_id = ?
+		)
+		INSERT INTO base_references (category_id, title, position)
+		SELECT ?, ?, pos FROM next_pos`, categoryId, categoryId, title)
 	if err != nil {
 		return 0, fmt.Errorf("error inserting base reference: %v", err)
 	}
@@ -251,26 +227,6 @@ func (r *SQLiteRepository) addBaseReference(categoryId int64, title string) (int
 	refId, err := result.LastInsertId()
 	if err != nil {
 		return 0, fmt.Errorf("error getting last insert id: %v", err)
-	}
-
-	// Get next position from sequence and lock
-	var position int
-	err = tx.QueryRow(`
-		INSERT INTO reference_position_sequences (category_id, next_position) 
-		VALUES (?, 0)
-		ON CONFLICT (category_id) DO UPDATE 
-		SET next_position = next_position + 1
-		RETURNING next_position`, categoryId).Scan(&position)
-	if err != nil {
-		return 0, fmt.Errorf("error getting next position: %v", err)
-	}
-
-	// Insert position
-	_, err = tx.Exec(`
-		INSERT INTO reference_positions (reference_id, category_id, position)
-		VALUES (?, ?, ?)`, refId, categoryId, position)
-	if err != nil {
-		return 0, fmt.Errorf("error inserting reference position: %v", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -314,29 +270,16 @@ func (r *SQLiteRepository) DeleteReference(id int64) error {
 	// Reorder remaining references in the category to close any gaps
 	_, err = tx.Exec(`
 		WITH ranked AS (
-			SELECT reference_id, ROW_NUMBER() OVER (ORDER BY position) - 1 as new_pos
-			FROM reference_positions
+			SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 as new_pos
+			FROM base_references
 			WHERE category_id = ?
 		)
-		UPDATE reference_positions
+		UPDATE base_references
 		SET position = ranked.new_pos
 		FROM ranked
-		WHERE reference_positions.reference_id = ranked.reference_id
-		AND reference_positions.category_id = ?`, categoryId, categoryId)
+		WHERE base_references.id = ranked.id`, categoryId)
 	if err != nil {
 		return fmt.Errorf("error reordering remaining references: %v", err)
-	}
-
-	// Update the sequence to match the new max position
-	_, err = tx.Exec(`
-		UPDATE reference_position_sequences 
-		SET next_position = COALESCE(
-			(SELECT MAX(position) + 1 FROM reference_positions WHERE category_id = ?),
-			0
-		)
-		WHERE category_id = ?`, categoryId, categoryId)
-	if err != nil {
-		return fmt.Errorf("error updating position sequence: %v", err)
 	}
 
 	return tx.Commit()
@@ -351,26 +294,38 @@ func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {
 
 	valueStrings, valueArgs := r.preparePositionArgs(positions)
 
-	missingIdsQuery := `
-    SELECT COUNT(*) AS missing_categories
-      FROM categories c
-      LEFT JOIN input_values ui ON c.id = ui.input_id
-      WHERE ui.input_id IS NULL`
+	// For Postgres we could use "SELECT id FROM categories FOR UPDATE" to lock the rows
+	// until transaction completion. With SQLite we get db-level locking by default.
+	var categoryIds []int64
+	rows, err := tx.Query("SELECT id FROM categories")
+	if err != nil {
+		return fmt.Errorf("error querying categories: %v", err)
+	}
+	defer rows.Close()
 
-	invalidIdsQuery := `
-		SELECT COUNT(*) AS invalid_categories
-      FROM input_values ui
-      LEFT JOIN categories c ON c.id = ui.input_id
-      WHERE c.id IS NULL`
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("error scanning category id: %v", err)
+		}
+		categoryIds = append(categoryIds, id)
+	}
 
-	updateTable := "category_positions AS cp"
-	updateConditions := `cp.category_id = ui.input_id
-		AND missing_categories = 0
-		AND invalid_categories = 0`
+	if err := r.validatePositions(categoryIds, positions); err != nil {
+		return err
+	}
 
-	query := r.buildPositionUpdateQuery(valueStrings, missingIdsQuery, invalidIdsQuery, updateTable, updateConditions)
-	//log.Fatal(query)
-	result, err := tx.Exec(query, append(valueArgs, valueArgs...)...)
+	// Update positions directly in categories table since we've validated the input
+	query := `
+		WITH input_values (input_id, new_position) AS (
+			VALUES ` + strings.Join(valueStrings, ",") + `
+		)
+		UPDATE categories 
+		SET position = ui.new_position
+		FROM input_values ui
+		WHERE categories.id = ui.input_id`
+
+	result, err := tx.Exec(query, valueArgs...)
 	if err != nil {
 		return fmt.Errorf("error updating category positions: %v", err)
 	}
@@ -381,7 +336,7 @@ func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("no positions were updated - some categories may be missing")
+		return fmt.Errorf("no positions were updated")
 	}
 
 	return tx.Commit()
@@ -394,28 +349,42 @@ func (r *SQLiteRepository) ReorderReferences(categoryId int64, positions map[int
 	}
 	defer tx.Rollback()
 
+	// Get all reference IDs for this category
+	var referenceIds []int64
+	// For Postgres we could use "SELECT id FROM categories FOR UPDATE" to lock the rows
+	// until transaction completion. With SQLite we get transaction-level locking by default.
+	rows, err := tx.Query("SELECT id FROM base_references WHERE category_id = ?", categoryId)
+	if err != nil {
+		return fmt.Errorf("error querying references: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("error scanning reference id: %v", err)
+		}
+		referenceIds = append(referenceIds, id)
+	}
+
+	if err := r.validatePositions(referenceIds, positions); err != nil {
+		return err
+	}
+
 	valueStrings, valueArgs := r.preparePositionArgs(positions)
 
-	missingIdsQuery := `
-    SELECT COUNT(*) AS missing_references
-      FROM base_references r
-      LEFT JOIN input_values ui ON r.id = ui.input_id
-      WHERE r.category_id = ? AND ui.input_id IS NULL`
-	invalidIdsQuery := `
-		SELECT COUNT(*) AS invalid_references
-      FROM input_values ui
-      LEFT JOIN base_references r ON r.id = ui.input_id AND r.category_id = ?
-      WHERE r.id IS NULL`
+	// Update positions directly in base_references table since we've validated the input
+	query := `
+		WITH input_values (input_id, new_position) AS (
+			VALUES ` + strings.Join(valueStrings, ",") + `
+		)
+		UPDATE base_references 
+		SET position = ui.new_position
+		FROM input_values ui
+		WHERE base_references.id = ui.input_id
+		AND base_references.category_id = ?`
 
-	updateTable := "reference_positions AS rp"
-	updateConditions := `rp.reference_id = ui.input_id
-    AND rp.category_id = ?
-    AND missing_references = 0
-    AND invalid_references = 0`
-
-	query := r.buildPositionUpdateQuery(valueStrings, missingIdsQuery, invalidIdsQuery, updateTable, updateConditions)
-
-	result, err := tx.Exec(query, append(append(valueArgs, categoryId, categoryId), append(valueArgs, categoryId)...)...)
+	result, err := tx.Exec(query, append(valueArgs, categoryId)...)
 	if err != nil {
 		return fmt.Errorf("error updating reference positions: %v", err)
 	}
@@ -426,31 +395,34 @@ func (r *SQLiteRepository) ReorderReferences(categoryId int64, positions map[int
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("no positions were updated - some references may be missing or invalid")
+		return fmt.Errorf("no positions were updated")
 	}
 
 	return tx.Commit()
 }
 
-func (r *SQLiteRepository) buildPositionUpdateQuery(valueStrings []string, missingIdsQuery string, invalidIdsQuery string, updateTable string, updateConditions string) string {
-	// Since we are using sqlite, having nested SELECT validation queries is safe due to sqlite's db-level concurrency model
-	// However, if we were using PG, this query would not be free of race conditions with concurrent transactions adding/removing references/categories.
-	// We'd have to lock the affected rows while their positions are updated, and that can be done with SELECT...FOR UPDATE statements. Would also allow us to split this into separate queries and make the code more readable.
-	// But since we don't have the option to write it that way in sqlite (and we don't need to either), here goes...
-	return fmt.Sprintf(`
-    WITH input_values(input_id, new_position) AS (
-    VALUES %s
-    ),
-    missing_ids_validations AS (
-        %s
-    ),
-		invalid_ids_validation AS (
-				%s
-		)
-    UPDATE %s
-    SET position = ui.new_position
-    FROM input_values ui, missing_ids_validations, invalid_ids_validation
-    WHERE %s`, strings.Join(valueStrings, ","), missingIdsQuery, invalidIdsQuery, updateTable, updateConditions)
+func (r *SQLiteRepository) validatePositions(existingIds []int64, positions map[int64]int) error {
+	// Validate no items are missing from the positions map
+	for _, id := range existingIds {
+		if _, exists := positions[id]; !exists {
+			return fmt.Errorf("missing position for id %d", id)
+		}
+	}
+
+	// Validate no unknown items in positions map
+	for id := range positions {
+		found := false
+		for _, knownId := range existingIds {
+			if id == knownId {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("invalid id in positions: %d", id)
+		}
+	}
+	return nil
 }
 
 func (r *SQLiteRepository) preparePositionArgs(positions map[int64]int) ([]string, []interface{}) {
