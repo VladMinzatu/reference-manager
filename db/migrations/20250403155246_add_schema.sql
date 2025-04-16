@@ -18,6 +18,7 @@ CREATE TABLE base_references (
 CREATE TABLE book_references (
     reference_id INTEGER PRIMARY KEY,
     isbn VARCHAR(50) NOT NULL,
+    description TEXT,
     FOREIGN KEY (reference_id) REFERENCES base_references(id) ON DELETE CASCADE
 );
 

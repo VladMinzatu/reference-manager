@@ -123,8 +123,9 @@ func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, er
 				   WHEN n.reference_id IS NOT NULL THEN ?
 			   END as ref_type,
 			   COALESCE(bk.isbn, '') as isbn,
+			   COALESCE(bk.description, '') as book_description,
 			   COALESCE(l.url, '') as url,
-			   COALESCE(l.description, '') as description,
+			   COALESCE(l.description, '') as link_description,
 			   COALESCE(n.text, '') as text
 		FROM base_references br
 		LEFT JOIN book_references bk ON br.id = bk.reference_id
@@ -140,16 +141,16 @@ func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, er
 	var references []model.Reference
 	for rows.Next() {
 		var id int64
-		var title, refType, isbn, url, description, text string
-		if err := rows.Scan(&id, &title, &refType, &isbn, &url, &description, &text); err != nil {
+		var title, refType, isbn, bookDescription, url, linkDescription, text string
+		if err := rows.Scan(&id, &title, &refType, &isbn, &bookDescription, &url, &linkDescription, &text); err != nil {
 			return nil, fmt.Errorf("error scanning reference: %v", err)
 		}
 
 		switch refType {
 		case BOOK_TYPE:
-			references = append(references, model.BookReference{Id: id, Title: title, ISBN: isbn})
+			references = append(references, model.BookReference{Id: id, Title: title, ISBN: isbn, Description: bookDescription})
 		case LINK_TYPE:
-			references = append(references, model.LinkReference{Id: id, Title: title, URL: url, Description: description})
+			references = append(references, model.LinkReference{Id: id, Title: title, URL: url, Description: linkDescription})
 		case NOTE_TYPE:
 			references = append(references, model.NoteReference{Id: id, Title: title, Text: text})
 		}
@@ -157,20 +158,20 @@ func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, er
 	return references, nil
 }
 
-func (r *SQLiteRepository) AddBookReferece(categoryId int64, title string, isbn string) (model.BookReference, error) {
+func (r *SQLiteRepository) AddBookReferece(categoryId int64, title string, isbn string, description string) (model.BookReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.BookReference{}, err
 	}
 
 	_, err = r.db.Exec(`
-		INSERT INTO book_references (reference_id, isbn)
-		VALUES (?, ?)`, refId, isbn)
+		INSERT INTO book_references (reference_id, isbn, description)
+		VALUES (?, ?, ?)`, refId, isbn, description)
 	if err != nil {
 		return model.BookReference{}, fmt.Errorf("error inserting book reference: %v", err)
 	}
 
-	return model.BookReference{Id: refId, Title: title, ISBN: isbn}, nil
+	return model.BookReference{Id: refId, Title: title, ISBN: isbn, Description: description}, nil
 }
 
 func (r *SQLiteRepository) AddLinkReferece(categoryId int64, title string, url string, description string) (model.LinkReference, error) {

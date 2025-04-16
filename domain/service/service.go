@@ -32,8 +32,8 @@ func (s *ReferenceService) GetReferences(categoryId int64) ([]model.Reference, e
 	return s.repo.GetRefereces(categoryId)
 }
 
-func (s *ReferenceService) AddBookReference(categoryId int64, title string, isbn string) (model.BookReference, error) {
-	return s.repo.AddBookReferece(categoryId, title, isbn)
+func (s *ReferenceService) AddBookReference(categoryId int64, title string, isbn string, description string) (model.BookReference, error) {
+	return s.repo.AddBookReferece(categoryId, title, isbn, description)
 }
 
 func (s *ReferenceService) AddLinkReference(categoryId int64, title string, url string, description string) (model.LinkReference, error) {

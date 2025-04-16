@@ -188,10 +188,18 @@ func TestAddAndGetReferences(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add references of different types
-	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884")
+	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
 	require.NoError(t, err)
 	assert.Equal(t, "Clean Code", book.Title)
 	assert.Equal(t, "978-0132350884", book.ISBN)
+	assert.Equal(t, "A handbook of agile software craftsmanship", book.Description)
+
+	// Test book with no description
+	bookNoDesc, err := repo.AddBookReferece(cat.Id, "Design Patterns", "978-0201633610", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Design Patterns", bookNoDesc.Title)
+	assert.Equal(t, "978-0201633610", bookNoDesc.ISBN)
+	assert.Equal(t, "", bookNoDesc.Description)
 
 	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
 	require.NoError(t, err)
@@ -207,21 +215,27 @@ func TestAddAndGetReferences(t *testing.T) {
 	// Get all references for the category
 	refs, err := repo.GetRefereces(cat.Id)
 	require.NoError(t, err)
-	assert.Len(t, refs, 3)
+	assert.Len(t, refs, 4)
 
 	// Verify references are returned in order of insertion
 	assert.Equal(t, book.Id, refs[0].(model.BookReference).Id)
 	assert.Equal(t, book.Title, refs[0].(model.BookReference).Title)
 	assert.Equal(t, book.ISBN, refs[0].(model.BookReference).ISBN)
+	assert.Equal(t, book.Description, refs[0].(model.BookReference).Description)
 
-	assert.Equal(t, link.Id, refs[1].(model.LinkReference).Id)
-	assert.Equal(t, link.Title, refs[1].(model.LinkReference).Title)
-	assert.Equal(t, link.URL, refs[1].(model.LinkReference).URL)
-	assert.Equal(t, link.Description, refs[1].(model.LinkReference).Description)
+	assert.Equal(t, bookNoDesc.Id, refs[1].(model.BookReference).Id)
+	assert.Equal(t, bookNoDesc.Title, refs[1].(model.BookReference).Title)
+	assert.Equal(t, bookNoDesc.ISBN, refs[1].(model.BookReference).ISBN)
+	assert.Equal(t, bookNoDesc.Description, refs[1].(model.BookReference).Description)
 
-	assert.Equal(t, note.Id, refs[2].(model.NoteReference).Id)
-	assert.Equal(t, note.Title, refs[2].(model.NoteReference).Title)
-	assert.Equal(t, note.Text, refs[2].(model.NoteReference).Text)
+	assert.Equal(t, link.Id, refs[2].(model.LinkReference).Id)
+	assert.Equal(t, link.Title, refs[2].(model.LinkReference).Title)
+	assert.Equal(t, link.URL, refs[2].(model.LinkReference).URL)
+	assert.Equal(t, link.Description, refs[2].(model.LinkReference).Description)
+
+	assert.Equal(t, note.Id, refs[3].(model.NoteReference).Id)
+	assert.Equal(t, note.Title, refs[3].(model.NoteReference).Title)
+	assert.Equal(t, note.Text, refs[3].(model.NoteReference).Text)
 
 	// Verify references for non-existent category returns empty slice
 	refs, err = repo.GetRefereces(999)
@@ -238,7 +252,7 @@ func TestDeletingReferences(t *testing.T) {
 	cat, err := repo.AddCategory("Test Category")
 	require.NoError(t, err)
 
-	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884")
+	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
 	require.NoError(t, err)
 
 	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
@@ -291,7 +305,7 @@ func TestReorderReferences(t *testing.T) {
 	cat, err := repo.AddCategory("Test Category")
 	require.NoError(t, err)
 
-	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884")
+	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
 	require.NoError(t, err)
 
 	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
@@ -347,7 +361,7 @@ func TestReorderReferences(t *testing.T) {
 
 	otherCat, err := repo.AddCategory("Other Category")
 	require.NoError(t, err)
-	otherBook, err := repo.AddBookReferece(otherCat.Id, "Other Book", "123")
+	otherBook, err := repo.AddBookReferece(otherCat.Id, "Other Book", "123", "")
 	require.NoError(t, err)
 	t.Run("reference from different category", func(t *testing.T) {
 		invalidPositions := map[int64]int{

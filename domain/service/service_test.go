@@ -32,7 +32,7 @@ func (m *MockRepository) GetRefereces(categoryId int64) ([]model.Reference, erro
 	return args.Get(0).([]model.Reference), args.Error(1)
 }
 
-func (m *MockRepository) AddBookReferece(categoryId int64, title string, isbn string) (model.BookReference, error) {
+func (m *MockRepository) AddBookReferece(categoryId int64, title string, isbn string, description string) (model.BookReference, error) {
 	args := m.Called(categoryId, title, isbn)
 	return args.Get(0).(model.BookReference), args.Error(1)
 }

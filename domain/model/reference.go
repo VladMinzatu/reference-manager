@@ -11,9 +11,10 @@ type Renderer interface {
 }
 
 type BookReference struct {
-	Id    int64
-	Title string
-	ISBN  string
+	Id          int64
+	Title       string
+	ISBN        string
+	Description string
 }
 
 func (b BookReference) Render(renderer Renderer) {
