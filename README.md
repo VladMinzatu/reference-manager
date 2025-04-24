@@ -22,7 +22,10 @@ The `SELECT FOR UPDATE` pattern can be used to achieve row-level locking during 
 
 But Sqlite doesn't support `SELECT FOR UPDATE`, so we have organised our queries in a way that would not be safe against race conditions in Postgres at times, taking advantage of SQLite's db-locking semantics. So we are safe, given that we are using SQLite, but if we were to switch to Postgres, the queries and code in our `adapters/repository.go` would need to suffer some changes, because of different concurrency guarantees. Comments are left in the code around most queries where we take a simple approach that is afforded by SQLite, but where we'd have to do some explicit locking if we were to use e.g. Postgres.
 
-As a side note, since we're talking about alternative DBs, fine grained transactions can be simulated with coarser underlying aggregates (think a document db with document per category), where updates are applied to the aggregate using optimistic locking. (generally with a tradeoff in the number of conflicts, but for what we're doing here, would be a decent choice and would simplify some things)
+### Side note on modeling
+
+Since we're talking about alternative DBs, fine grained transactions can be simulated with coarser underlying aggregates (think a document db with document per category), where updates are applied to the aggregate using optimistic locking. (generally with a tradeoff in the number of conflicts, but for what we're doing here, would be a decent choice and would simplify some things).
+So in an alternative implementation, we could keep the exact same interface as here and use an underlying document store with one entry per category (with all the references data within that entry). And all the modeling (and schema evolution and concurrency) implications that that brings. Or we could change the interface to reflect such coarse grained logic as well. But that's not the approach we took.
 
 ## Working with the db locally
 
