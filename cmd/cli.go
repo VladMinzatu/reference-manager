@@ -81,6 +81,27 @@ func main() {
 		},
 	}
 
+	var reorderCategoriesCmd = &cobra.Command{
+		Use:   "reorder [id1] [id2] ...",
+		Short: "Reorder categories by specifying their ids in the desired order",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			positions := make(map[int64]int)
+			for pos, arg := range args {
+				id, err := strconv.ParseInt(arg, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid category id: %s", arg)
+				}
+				positions[id] = pos
+			}
+			if err := svc.ReorderCategories(positions); err != nil {
+				return err
+			}
+			fmt.Println("Categories reordered successfully.")
+			return nil
+		},
+	}
+
 	// Reference commands
 	var referenceCmd = &cobra.Command{
 		Use:   "reference",
@@ -179,8 +200,33 @@ func main() {
 		},
 	}
 
-	categoryCmd.AddCommand(addCategoryCmd, listCategoriesCmd, deleteCategoryCmd)
-	referenceCmd.AddCommand(listReferencesCmd, addBookCmd, addLinkCmd, addNoteCmd, deleteReferenceCmd)
+	var reorderReferencesCmd = &cobra.Command{
+		Use:   "reorder [categoryId] [id1] [id2] ...",
+		Short: "Reorder references in a category by specifying the ids in the desired order.",
+		Args:  cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			categoryId, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid category id: %v", err)
+			}
+			positions := make(map[int64]int)
+			for pos, idStr := range args[1:] {
+				id, err := strconv.ParseInt(idStr, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid reference id at position %d: %v", pos, err)
+				}
+				positions[id] = pos
+			}
+			if err := svc.ReorderReferences(categoryId, positions); err != nil {
+				return err
+			}
+			fmt.Printf("Reordered references in category %d\n", categoryId)
+			return nil
+		},
+	}
+
+	categoryCmd.AddCommand(addCategoryCmd, listCategoriesCmd, deleteCategoryCmd, reorderCategoriesCmd)
+	referenceCmd.AddCommand(listReferencesCmd, addBookCmd, addLinkCmd, addNoteCmd, deleteReferenceCmd, reorderReferencesCmd)
 	rootCmd.AddCommand(categoryCmd, referenceCmd)
 
 	if err := rootCmd.Execute(); err != nil {
