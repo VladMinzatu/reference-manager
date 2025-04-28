@@ -63,6 +63,23 @@ func main() {
 			return nil
 		},
 	}
+	var updateCategoryCmd = &cobra.Command{
+		Use:   "update [id] [new_name]",
+		Short: "Update the name of a category",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid category id format (must be integer): %v", err)
+			}
+			newName := args[1]
+			if err := svc.UpdateCategory(id, newName); err != nil {
+				return err
+			}
+			fmt.Printf("Updated category %d to name: %s\n", id, newName)
+			return nil
+		},
+	}
 
 	var deleteCategoryCmd = &cobra.Command{
 		Use:   "delete [id]",
@@ -147,6 +164,26 @@ func main() {
 		},
 	}
 
+	var updateBookCmd = &cobra.Command{
+		Use:   "update-book [id] [title] [isbn] [description]",
+		Short: "Update a book reference",
+		Args:  cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid book id: %v", err)
+			}
+			title := args[1]
+			isbn := args[2]
+			description := args[3]
+			if err := svc.UpdateBookReference(id, title, isbn, description); err != nil {
+				return err
+			}
+			fmt.Printf("Updated book (id: %d)\n", id)
+			return nil
+		},
+	}
+
 	var addLinkCmd = &cobra.Command{
 		Use:   "add-link [categoryId] [title] [url] [description]",
 		Short: "Add a link reference",
@@ -165,6 +202,26 @@ func main() {
 		},
 	}
 
+	var updateLinkCmd = &cobra.Command{
+		Use:   "update-link [id] [title] [url] [description]",
+		Short: "Update a link reference",
+		Args:  cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid link id: %v", err)
+			}
+			title := args[1]
+			url := args[2]
+			description := args[3]
+			if err := svc.UpdateLinkReference(id, title, url, description); err != nil {
+				return err
+			}
+			fmt.Printf("Updated link (id: %d)\n", id)
+			return nil
+		},
+	}
+
 	var addNoteCmd = &cobra.Command{
 		Use:   "add-note [categoryId] [title] [text]",
 		Short: "Add a note reference",
@@ -179,6 +236,25 @@ func main() {
 				return err
 			}
 			fmt.Printf("Added note: %s (id: %d)\n", note.Title, note.Id)
+			return nil
+		},
+	}
+
+	var updateNoteCmd = &cobra.Command{
+		Use:   "update-note [id] [title] [text]",
+		Short: "Update a note reference",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid note id: %v", err)
+			}
+			title := args[1]
+			text := args[2]
+			if err := svc.UpdateNoteReference(id, title, text); err != nil {
+				return err
+			}
+			fmt.Printf("Updated note (id: %d)\n", id)
 			return nil
 		},
 	}
@@ -225,8 +301,8 @@ func main() {
 		},
 	}
 
-	categoryCmd.AddCommand(addCategoryCmd, listCategoriesCmd, deleteCategoryCmd, reorderCategoriesCmd)
-	referenceCmd.AddCommand(listReferencesCmd, addBookCmd, addLinkCmd, addNoteCmd, deleteReferenceCmd, reorderReferencesCmd)
+	categoryCmd.AddCommand(addCategoryCmd, listCategoriesCmd, updateCategoryCmd, deleteCategoryCmd, reorderCategoriesCmd)
+	referenceCmd.AddCommand(listReferencesCmd, addBookCmd, updateBookCmd, addLinkCmd, updateLinkCmd, addNoteCmd, updateNoteCmd, deleteReferenceCmd, reorderReferencesCmd)
 	rootCmd.AddCommand(categoryCmd, referenceCmd)
 
 	if err := rootCmd.Execute(); err != nil {
