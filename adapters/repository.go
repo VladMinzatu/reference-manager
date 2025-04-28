@@ -69,6 +69,29 @@ func (r *SQLiteRepository) AddCategory(name string) (model.Category, error) {
 	return model.Category{Id: id, Name: name}, nil
 }
 
+func (r *SQLiteRepository) UpdateCategory(id int64, name string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec("UPDATE categories SET name = ? WHERE id = ?", name, id)
+	if err != nil {
+		return fmt.Errorf("error updating category: %v", err)
+	}
+
+	if err := r.checkUpdateResult(result); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+
 func (r *SQLiteRepository) DeleteCategory(id int64) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -174,6 +197,38 @@ func (r *SQLiteRepository) AddBookReferece(categoryId int64, title string, isbn 
 	return model.BookReference{Id: refId, Title: title, ISBN: isbn, Description: description}, nil
 }
 
+func (r *SQLiteRepository) UpdateBookReference(id int64, title string, isbn string, description string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Update base_references table
+	result, err := tx.Exec("UPDATE base_references SET title = ? WHERE id = ?", title, id)
+	if err != nil {
+		return fmt.Errorf("error updating base reference: %v", err)
+	}
+	if err := r.checkUpdateResult(result); err != nil {
+		return err
+	}
+
+	// Update book_references table
+	result, err = tx.Exec("UPDATE book_references SET isbn = ?, description = ? WHERE reference_id = ?", isbn, description, id)
+	if err != nil {
+		return fmt.Errorf("error updating book reference: %v", err)
+	}
+	if err := r.checkUpdateResult(result); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+
 func (r *SQLiteRepository) AddLinkReferece(categoryId int64, title string, url string, description string) (model.LinkReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
@@ -190,6 +245,38 @@ func (r *SQLiteRepository) AddLinkReferece(categoryId int64, title string, url s
 	return model.LinkReference{Id: refId, Title: title, URL: url, Description: description}, nil
 }
 
+func (r *SQLiteRepository) UpdateLinkReference(id int64, title string, url string, description string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Update base_references table
+	result, err := tx.Exec("UPDATE base_references SET title = ? WHERE id = ?", title, id)
+	if err != nil {
+		return fmt.Errorf("error updating base reference: %v", err)
+	}
+	if err := r.checkUpdateResult(result); err != nil {
+		return err
+	}
+
+	// Update link_references table
+	result, err = tx.Exec("UPDATE link_references SET url = ?, description = ? WHERE reference_id = ?", url, description, id)
+	if err != nil {
+		return fmt.Errorf("error updating link reference: %v", err)
+	}
+	if err := r.checkUpdateResult(result); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+
 func (r *SQLiteRepository) AddNoteReferece(categoryId int64, title string, text string) (model.NoteReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
@@ -204,6 +291,49 @@ func (r *SQLiteRepository) AddNoteReferece(categoryId int64, title string, text 
 	}
 
 	return model.NoteReference{Id: refId, Title: title, Text: text}, nil
+}
+
+func (r *SQLiteRepository) UpdateNoteReference(id int64, title string, text string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Update base_references table
+	result, err := tx.Exec("UPDATE base_references SET title = ? WHERE id = ?", title, id)
+	if err != nil {
+		return fmt.Errorf("error updating base reference: %v", err)
+	}
+	if err := r.checkUpdateResult(result); err != nil {
+		return err
+	}
+
+	// Update note_references table
+	result, err = tx.Exec("UPDATE note_references SET text = ? WHERE reference_id = ?", text, id)
+	if err != nil {
+		return fmt.Errorf("error updating note reference: %v", err)
+	}
+	if err := r.checkUpdateResult(result); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) checkUpdateResult(result sql.Result) error {
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error getting rows affected: %v", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("could not find entity with specified id")
+	}
+	return nil
 }
 
 func (r *SQLiteRepository) addBaseReference(categoryId int64, title string) (int64, error) {

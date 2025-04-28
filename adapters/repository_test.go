@@ -58,6 +58,33 @@ func TestAddingAndRetrievingCategories(t *testing.T) {
 	expectedCategories := []model.Category{cat1, cat2, cat3}
 	assert.Equal(t, expectedCategories, categories)
 }
+
+func TestUpdatingCategory(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	repo := NewSQLiteRepository(db)
+
+	// Add a category
+	cat, err := repo.AddCategory("Original Name")
+	require.NoError(t, err)
+
+	// Update the category name
+	err = repo.UpdateCategory(cat.Id, "Updated Name")
+	require.NoError(t, err)
+
+	// Retrieve categories and verify update
+	categories, err := repo.GetAllCategories()
+	require.NoError(t, err)
+	require.Len(t, categories, 1)
+	assert.Equal(t, cat.Id, categories[0].Id)
+	assert.Equal(t, "Updated Name", categories[0].Name)
+
+	// Try updating a non-existent category
+	err = repo.UpdateCategory(999, "Should Fail")
+	assert.Error(t, err)
+}
+
 func TestDeletingCategories(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
@@ -241,6 +268,98 @@ func TestAddAndGetReferences(t *testing.T) {
 	refs, err = repo.GetRefereces(999)
 	require.NoError(t, err)
 	assert.Empty(t, refs)
+}
+
+func TestUpdatingReferences(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	repo := NewSQLiteRepository(db)
+	cat, err := repo.AddCategory("Update Test Category")
+	require.NoError(t, err)
+
+	// Add initial references
+	book, err := repo.AddBookReferece(cat.Id, "Original Book", "111-1111111111", "Original Description")
+	require.NoError(t, err)
+	link, err := repo.AddLinkReferece(cat.Id, "Original Link", "https://original.com", "Original Link Description")
+	require.NoError(t, err)
+	note, err := repo.AddNoteReferece(cat.Id, "Original Note", "Original note text")
+	require.NoError(t, err)
+
+	t.Run("update book reference", func(t *testing.T) {
+		err := repo.UpdateBookReference(book.Id, "Updated Book", "222-2222222222", "Updated Description")
+		require.NoError(t, err)
+
+		refs, err := repo.GetRefereces(cat.Id)
+		require.NoError(t, err)
+
+		// Find the updated book reference
+		var found bool
+		for _, ref := range refs {
+			if b, ok := ref.(model.BookReference); ok && b.Id == book.Id {
+				found = true
+				assert.Equal(t, "Updated Book", b.Title)
+				assert.Equal(t, "222-2222222222", b.ISBN)
+				assert.Equal(t, "Updated Description", b.Description)
+			}
+		}
+		assert.True(t, found, "Updated book reference not found")
+	})
+
+	t.Run("update link reference", func(t *testing.T) {
+		err := repo.UpdateLinkReference(link.Id, "Updated Link", "https://updated.com", "Updated Link Description")
+		require.NoError(t, err)
+
+		refs, err := repo.GetRefereces(cat.Id)
+		require.NoError(t, err)
+
+		var found bool
+		for _, ref := range refs {
+			if l, ok := ref.(model.LinkReference); ok && l.Id == link.Id {
+				found = true
+				assert.Equal(t, "Updated Link", l.Title)
+				assert.Equal(t, "https://updated.com", l.URL)
+				assert.Equal(t, "Updated Link Description", l.Description)
+			}
+		}
+		assert.True(t, found, "Updated link reference not found")
+	})
+
+	t.Run("update note reference", func(t *testing.T) {
+		err := repo.UpdateNoteReference(note.Id, "Updated Note", "Updated note text")
+		require.NoError(t, err)
+
+		refs, err := repo.GetRefereces(cat.Id)
+		require.NoError(t, err)
+
+		var found bool
+		for _, ref := range refs {
+			if n, ok := ref.(model.NoteReference); ok && n.Id == note.Id {
+				found = true
+				assert.Equal(t, "Updated Note", n.Title)
+				assert.Equal(t, "Updated note text", n.Text)
+			}
+		}
+		assert.True(t, found, "Updated note reference not found")
+	})
+
+	t.Run("update non-existent book reference", func(t *testing.T) {
+		err := repo.UpdateBookReference(9999, "Doesn't Exist", "000-0000000000", "No Desc")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "could not find entity with specified id")
+	})
+
+	t.Run("update non-existent link reference", func(t *testing.T) {
+		err := repo.UpdateLinkReference(9999, "Doesn't Exist", "https://none.com", "No Desc")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "could not find entity with specified id")
+	})
+
+	t.Run("update non-existent note reference", func(t *testing.T) {
+		err := repo.UpdateNoteReference(9999, "Doesn't Exist", "No Text")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "could not find entity with specified id")
+	})
 }
 
 func TestDeletingReferences(t *testing.T) {

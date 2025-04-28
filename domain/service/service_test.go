@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
@@ -22,6 +23,11 @@ func (m *MockRepository) AddCategory(name string) (model.Category, error) {
 	return args.Get(0).(model.Category), args.Error(1)
 }
 
+func (m *MockRepository) UpdateCategory(id int64, name string) error {
+	args := m.Called(id, name)
+	return args.Error(1)
+}
+
 func (m *MockRepository) DeleteCategory(id int64) error {
 	args := m.Called(id)
 	return args.Error(0)
@@ -33,8 +39,13 @@ func (m *MockRepository) GetRefereces(categoryId int64) ([]model.Reference, erro
 }
 
 func (m *MockRepository) AddBookReferece(categoryId int64, title string, isbn string, description string) (model.BookReference, error) {
-	args := m.Called(categoryId, title, isbn)
+	args := m.Called(categoryId, title, isbn, description)
 	return args.Get(0).(model.BookReference), args.Error(1)
+}
+
+func (m *MockRepository) UpdateBookReference(id int64, title string, isbn string, description string) error {
+	args := m.Called(id, title, isbn, description)
+	return args.Error(1)
 }
 
 func (m *MockRepository) AddLinkReferece(categoryId int64, title string, url string, description string) (model.LinkReference, error) {
@@ -42,9 +53,19 @@ func (m *MockRepository) AddLinkReferece(categoryId int64, title string, url str
 	return args.Get(0).(model.LinkReference), args.Error(1)
 }
 
+func (m *MockRepository) UpdateLinkReference(id int64, title string, url string, description string) error {
+	args := m.Called(id, title, url, description)
+	return args.Error(1)
+}
+
 func (m *MockRepository) AddNoteReferece(categoryId int64, title string, text string) (model.NoteReference, error) {
 	args := m.Called(categoryId, title, text)
 	return args.Get(0).(model.NoteReference), args.Error(1)
+}
+
+func (m *MockRepository) UpdateNoteReference(id int64, title string, text string) error {
+	args := m.Called(id, title, text)
+	return args.Error(1)
 }
 
 func (m *MockRepository) DeleteReference(id int64) error {
@@ -91,6 +112,106 @@ func TestAddCategory(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedCategory, category)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateCategory(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	expectedCategory := model.Category{Id: 1, Name: "Updated Category"}
+	mockRepo.On("UpdateCategory", int64(1), "Updated Category").Return(expectedCategory, nil)
+
+	err := service.UpdateCategory(1, "Updated Category")
+
+	assert.NoError(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateCategory_Error(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	mockRepo.On("UpdateCategory", int64(1), "Updated Category").Return(model.Category{}, errors.New("update error"))
+
+	err := service.UpdateCategory(1, "Updated Category")
+
+	assert.Error(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateBookReference(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	expectedBook := model.BookReference{Id: 1, Title: "Book", ISBN: "123", Description: "desc"}
+	mockRepo.On("UpdateBookReference", int64(1), "Book", "123", "desc").Return(expectedBook, nil)
+
+	err := service.UpdateBookReference(1, "Book", "123", "desc")
+
+	assert.NoError(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateBookReference_Error(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	mockRepo.On("UpdateBookReference", int64(1), "Book", "123", "desc").Return(model.BookReference{}, errors.New("update error"))
+
+	err := service.UpdateBookReference(1, "Book", "123", "desc")
+
+	assert.Error(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateLinkReference(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	expectedLink := model.LinkReference{Id: 1, Title: "Link", URL: "http://a", Description: "desc"}
+	mockRepo.On("UpdateLinkReference", int64(1), "Link", "http://a", "desc").Return(expectedLink, nil)
+
+	err := service.UpdateLinkReference(1, "Link", "http://a", "desc")
+
+	assert.NoError(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateLinkReference_Error(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	mockRepo.On("UpdateLinkReference", int64(1), "Link", "http://a", "desc").Return(model.LinkReference{}, errors.New("update error"))
+
+	err := service.UpdateLinkReference(1, "Link", "http://a", "desc")
+
+	assert.Error(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateNoteReference(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	expectedNote := model.NoteReference{Id: 1, Title: "Note", Text: "text"}
+	mockRepo.On("UpdateNoteReference", int64(1), "Note", "text").Return(expectedNote, nil)
+
+	err := service.UpdateNoteReference(1, "Note", "text")
+
+	assert.NoError(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUpdateNoteReference_Error(t *testing.T) {
+	mockRepo := new(MockRepository)
+	service := NewReferenceService(mockRepo)
+
+	mockRepo.On("UpdateNoteReference", int64(1), "Note", "text").Return(model.NoteReference{}, errors.New("update error"))
+
+	err := service.UpdateNoteReference(1, "Note", "text")
+
+	assert.Error(t, err)
 	mockRepo.AssertExpectations(t)
 }
 
