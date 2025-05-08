@@ -1,5 +1,24 @@
 # reference-manager
 
+## Starred references
+
+The application and db schema now include the possibility to mark certain references as 'starred', along with the possibility to filter out references when retrieving them based on their starred status.
+
+My personal use for this functionality is to highlight certain reference books or sources (usually books) that are key references. Usually, these will have the following characteristics:
+- they usually cover a broad topic (e.g. operating systems, microservices, etc.)
+- they are exceptionally clear, providing intuitive explanations as well as going into sufficient depth in the topics covered
+- they give a great overview of the whole topic, as well as pointing to references for digging deeper
+
+Some of my favorite examples of such references would be:
+- [Code: The Hidden Language of Computer Hardware and Software](https://isbnsearch.org/isbn/9780137909100) by Charles Petzold
+- [Designing Data Intensive Applications](https://isbnsearch.org/isbn/9781449373320) by Martin Kleppmann
+- [Operating Systems: Three Easy Pieces](https://isbnsearch.org/isbn/9781985086593) by Remzi H Arpaci-Dusseau; Andrea C Arpaci-Dusseau
+- [Learning Domain-Driven Design: Aligning Software Architecture and Business Strategy](https://isbnsearch.org/isbn/9781098100131) by Vlad Khononov
+- [Learning Go: An Idiomatic Approach to Real-World Go Programming](https://isbnsearch.org/isbn/9781098139292) by Jon Bodner
+
+and others to be found in the db.
+
+
 ## Domain and DB modeling notes
 
 The main assumption behind the modeling choices made here is that the number of categories, as well as the number of references within one category are relatively small (few 100s at most).

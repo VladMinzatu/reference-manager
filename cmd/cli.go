@@ -126,15 +126,22 @@ func main() {
 	}
 
 	var listReferencesCmd = &cobra.Command{
-		Use:   "list [categoryId]",
-		Short: "List references in a category",
-		Args:  cobra.ExactArgs(1),
+		Use:   "list [categoryId] [starredOnly]",
+		Short: "List references in a category, optionally filtering by starred references",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			categoryId, err := strconv.ParseInt(args[0], 10, 64)
 			if err != nil {
 				return fmt.Errorf("invalid category id: %v", err)
 			}
-			refs, err := svc.GetReferences(categoryId)
+			starredOnly := false
+			if len(args) == 2 {
+				starredOnly, err = strconv.ParseBool(args[1])
+				if err != nil {
+					return fmt.Errorf("invalid starredOnly value (must be true or false): %v", err)
+				}
+			}
+			refs, err := svc.GetReferences(categoryId, starredOnly)
 			if err != nil {
 				return err
 			}
@@ -165,9 +172,9 @@ func main() {
 	}
 
 	var updateBookCmd = &cobra.Command{
-		Use:   "update-book [id] [title] [isbn] [description]",
+		Use:   "update-book [id] [title] [isbn] [description] [starred]",
 		Short: "Update a book reference",
-		Args:  cobra.ExactArgs(4),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := strconv.ParseInt(args[0], 10, 64)
 			if err != nil {
@@ -176,7 +183,11 @@ func main() {
 			title := args[1]
 			isbn := args[2]
 			description := args[3]
-			if err := svc.UpdateBookReference(id, title, isbn, description); err != nil {
+			starred, err := strconv.ParseBool(args[4])
+			if err != nil {
+				return fmt.Errorf("invalid starred value (must be true or false): %v", err)
+			}
+			if err := svc.UpdateBookReference(id, title, isbn, description, starred); err != nil {
 				return err
 			}
 			fmt.Printf("Updated book (id: %d)\n", id)
@@ -203,9 +214,9 @@ func main() {
 	}
 
 	var updateLinkCmd = &cobra.Command{
-		Use:   "update-link [id] [title] [url] [description]",
+		Use:   "update-link [id] [title] [url] [description] [starred]",
 		Short: "Update a link reference",
-		Args:  cobra.ExactArgs(4),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := strconv.ParseInt(args[0], 10, 64)
 			if err != nil {
@@ -214,7 +225,11 @@ func main() {
 			title := args[1]
 			url := args[2]
 			description := args[3]
-			if err := svc.UpdateLinkReference(id, title, url, description); err != nil {
+			starred, err := strconv.ParseBool(args[4])
+			if err != nil {
+				return fmt.Errorf("invalid starred value (must be true or false): %v", err)
+			}
+			if err := svc.UpdateLinkReference(id, title, url, description, starred); err != nil {
 				return err
 			}
 			fmt.Printf("Updated link (id: %d)\n", id)
@@ -241,9 +256,9 @@ func main() {
 	}
 
 	var updateNoteCmd = &cobra.Command{
-		Use:   "update-note [id] [title] [text]",
+		Use:   "update-note [id] [title] [text] [starred]",
 		Short: "Update a note reference",
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := strconv.ParseInt(args[0], 10, 64)
 			if err != nil {
@@ -251,7 +266,11 @@ func main() {
 			}
 			title := args[1]
 			text := args[2]
-			if err := svc.UpdateNoteReference(id, title, text); err != nil {
+			starred, err := strconv.ParseBool(args[3])
+			if err != nil {
+				return fmt.Errorf("invalid starred value (must be true or false): %v", err)
+			}
+			if err := svc.UpdateNoteReference(id, title, text, starred); err != nil {
 				return err
 			}
 			fmt.Printf("Updated note (id: %d)\n", id)

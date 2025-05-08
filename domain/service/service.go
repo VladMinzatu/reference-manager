@@ -32,32 +32,32 @@ func (s *ReferenceService) DeleteCategory(id int64) error {
 	return s.repo.DeleteCategory(id)
 }
 
-func (s *ReferenceService) GetReferences(categoryId int64) ([]model.Reference, error) {
-	return s.repo.GetRefereces(categoryId)
+func (s *ReferenceService) GetReferences(categoryId int64, starredOnly bool) ([]model.Reference, error) {
+	return s.repo.GetReferences(categoryId, starredOnly)
 }
 
 func (s *ReferenceService) AddBookReference(categoryId int64, title string, isbn string, description string) (model.BookReference, error) {
-	return s.repo.AddBookReferece(categoryId, title, isbn, description)
+	return s.repo.AddBookReference(categoryId, title, isbn, description)
 }
 
-func (s *ReferenceService) UpdateBookReference(id int64, title string, isbn string, description string) error {
-	return s.repo.UpdateBookReference(id, title, isbn, description)
+func (s *ReferenceService) UpdateBookReference(id int64, title string, isbn string, description string, starred bool) error {
+	return s.repo.UpdateBookReference(id, title, isbn, description, starred)
 }
 
 func (s *ReferenceService) AddLinkReference(categoryId int64, title string, url string, description string) (model.LinkReference, error) {
-	return s.repo.AddLinkReferece(categoryId, title, url, description)
+	return s.repo.AddLinkReference(categoryId, title, url, description)
 }
 
-func (s *ReferenceService) UpdateLinkReference(id int64, title string, url string, description string) error {
-	return s.repo.UpdateLinkReference(id, title, url, description)
+func (s *ReferenceService) UpdateLinkReference(id int64, title string, url string, description string, starred bool) error {
+	return s.repo.UpdateLinkReference(id, title, url, description, starred)
 }
 
 func (s *ReferenceService) AddNoteReference(categoryId int64, title string, text string) (model.NoteReference, error) {
-	return s.repo.AddNoteReferece(categoryId, title, text)
+	return s.repo.AddNoteReference(categoryId, title, text)
 }
 
-func (s *ReferenceService) UpdateNoteReference(id int64, title string, text string) error {
-	return s.repo.UpdateNoteReference(id, title, text)
+func (s *ReferenceService) UpdateNoteReference(id int64, title string, text string, starred bool) error {
+	return s.repo.UpdateNoteReference(id, title, text, starred)
 }
 
 func (s *ReferenceService) DeleteReference(id int64) error {

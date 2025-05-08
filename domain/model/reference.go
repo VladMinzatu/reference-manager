@@ -15,6 +15,7 @@ type BookReference struct {
 	Title       string
 	ISBN        string
 	Description string
+	Starred     bool
 }
 
 func (b BookReference) Render(renderer Renderer) {
@@ -26,6 +27,7 @@ type LinkReference struct {
 	Title       string
 	URL         string
 	Description string
+	Starred     bool
 }
 
 func (l LinkReference) Render(renderer Renderer) {
@@ -33,9 +35,10 @@ func (l LinkReference) Render(renderer Renderer) {
 }
 
 type NoteReference struct {
-	Id    int64
-	Title string
-	Text  string
+	Id      int64
+	Title   string
+	Text    string
+	Starred bool
 }
 
 func (n NoteReference) Render(renderer Renderer) {

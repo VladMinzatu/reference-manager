@@ -215,32 +215,32 @@ func TestAddAndGetReferences(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add references of different types
-	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
+	book, err := repo.AddBookReference(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
 	require.NoError(t, err)
 	assert.Equal(t, "Clean Code", book.Title)
 	assert.Equal(t, "978-0132350884", book.ISBN)
 	assert.Equal(t, "A handbook of agile software craftsmanship", book.Description)
 
 	// Test book with no description
-	bookNoDesc, err := repo.AddBookReferece(cat.Id, "Design Patterns", "978-0201633610", "")
+	bookNoDesc, err := repo.AddBookReference(cat.Id, "Design Patterns", "978-0201633610", "")
 	require.NoError(t, err)
 	assert.Equal(t, "Design Patterns", bookNoDesc.Title)
 	assert.Equal(t, "978-0201633610", bookNoDesc.ISBN)
 	assert.Equal(t, "", bookNoDesc.Description)
 
-	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
+	link, err := repo.AddLinkReference(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
 	require.NoError(t, err)
 	assert.Equal(t, "Go Blog", link.Title)
 	assert.Equal(t, "https://go.dev/blog", link.URL)
 	assert.Equal(t, "The Go Programming Language Blog", link.Description)
 
-	note, err := repo.AddNoteReferece(cat.Id, "Embedded & LLVM", "Look up resources.")
+	note, err := repo.AddNoteReference(cat.Id, "Embedded & LLVM", "Look up resources.")
 	require.NoError(t, err)
 	assert.Equal(t, "Embedded & LLVM", note.Title)
 	assert.Equal(t, "Look up resources.", note.Text)
 
 	// Get all references for the category
-	refs, err := repo.GetRefereces(cat.Id)
+	refs, err := repo.GetReferences(cat.Id, false)
 	require.NoError(t, err)
 	assert.Len(t, refs, 4)
 
@@ -265,7 +265,7 @@ func TestAddAndGetReferences(t *testing.T) {
 	assert.Equal(t, note.Text, refs[3].(model.NoteReference).Text)
 
 	// Verify references for non-existent category returns empty slice
-	refs, err = repo.GetRefereces(999)
+	refs, err = repo.GetReferences(999, false)
 	require.NoError(t, err)
 	assert.Empty(t, refs)
 }
@@ -279,18 +279,20 @@ func TestUpdatingReferences(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add initial references
-	book, err := repo.AddBookReferece(cat.Id, "Original Book", "111-1111111111", "Original Description")
+	book, err := repo.AddBookReference(cat.Id, "Original Book", "111-1111111111", "Original Description")
 	require.NoError(t, err)
-	link, err := repo.AddLinkReferece(cat.Id, "Original Link", "https://original.com", "Original Link Description")
+	link, err := repo.AddLinkReference(cat.Id, "Original Link", "https://original.com", "Original Link Description")
 	require.NoError(t, err)
-	note, err := repo.AddNoteReferece(cat.Id, "Original Note", "Original note text")
+	note, err := repo.AddNoteReference(cat.Id, "Original Note", "Original note text")
 	require.NoError(t, err)
 
 	t.Run("update book reference", func(t *testing.T) {
-		err := repo.UpdateBookReference(book.Id, "Updated Book", "222-2222222222", "Updated Description")
+		// Update the book reference and set it as non-starred
+		err := repo.UpdateBookReference(book.Id, "Updated Book", "222-2222222222", "Updated Description", false)
 		require.NoError(t, err)
 
-		refs, err := repo.GetRefereces(cat.Id)
+		// Retrieve all references (non-starred included)
+		refs, err := repo.GetReferences(cat.Id, false)
 		require.NoError(t, err)
 
 		// Find the updated book reference
@@ -301,16 +303,70 @@ func TestUpdatingReferences(t *testing.T) {
 				assert.Equal(t, "Updated Book", b.Title)
 				assert.Equal(t, "222-2222222222", b.ISBN)
 				assert.Equal(t, "Updated Description", b.Description)
+				assert.False(t, b.Starred, "Book reference should not be starred")
 			}
 		}
 		assert.True(t, found, "Updated book reference not found")
+
+		// Retrieve only starred references
+		starredRefs, err := repo.GetReferences(cat.Id, true)
+		require.NoError(t, err)
+
+		// Ensure the updated book reference is not included in starred references
+		for _, ref := range starredRefs {
+			if b, ok := ref.(model.BookReference); ok && b.Id == book.Id {
+				assert.Fail(t, "Non-starred book reference should not be included in starred references")
+			}
+		}
+	})
+
+	t.Run("star book reference", func(t *testing.T) {
+		// Update the book reference and set it as starred
+		err := repo.UpdateBookReference(book.Id, "Starred Book", "333-3333333333", "Starred Description", true)
+		require.NoError(t, err)
+
+		// Retrieve only starred references
+		starredRefs, err := repo.GetReferences(cat.Id, true)
+		require.NoError(t, err)
+
+		// Find the updated book reference in starred references
+		var found bool
+		for _, ref := range starredRefs {
+			if b, ok := ref.(model.BookReference); ok && b.Id == book.Id {
+				found = true
+				assert.Equal(t, "Starred Book", b.Title)
+				assert.Equal(t, "333-3333333333", b.ISBN)
+				assert.Equal(t, "Starred Description", b.Description)
+				assert.True(t, b.Starred, "Book reference should be starred")
+			}
+		}
+		assert.True(t, found, "Starred book reference not found")
+
+		// Retrieve all references (non-starred included)
+		allRefs, err := repo.GetReferences(cat.Id, false)
+		require.NoError(t, err)
+
+		// Ensure the starred book reference is included in all references
+		var starredFound bool
+		for _, ref := range allRefs {
+			if b, ok := ref.(model.BookReference); ok && b.Id == book.Id {
+				starredFound = true
+				assert.Equal(t, "Starred Book", b.Title)
+				assert.Equal(t, "333-3333333333", b.ISBN)
+				assert.Equal(t, "Starred Description", b.Description)
+				assert.True(t, b.Starred, "Book reference should be starred")
+			}
+		}
+		assert.True(t, starredFound, "Starred book reference not found in all references")
 	})
 
 	t.Run("update link reference", func(t *testing.T) {
-		err := repo.UpdateLinkReference(link.Id, "Updated Link", "https://updated.com", "Updated Link Description")
+		// Update the link reference and set it as non-starred
+		err := repo.UpdateLinkReference(link.Id, "Updated Link", "https://updated.com", "Updated Link Description", false)
 		require.NoError(t, err)
 
-		refs, err := repo.GetRefereces(cat.Id)
+		// Retrieve all references (non-starred included)
+		refs, err := repo.GetReferences(cat.Id, false)
 		require.NoError(t, err)
 
 		var found bool
@@ -320,16 +376,68 @@ func TestUpdatingReferences(t *testing.T) {
 				assert.Equal(t, "Updated Link", l.Title)
 				assert.Equal(t, "https://updated.com", l.URL)
 				assert.Equal(t, "Updated Link Description", l.Description)
+				assert.False(t, l.Starred, "Link reference should not be starred")
 			}
 		}
 		assert.True(t, found, "Updated link reference not found")
+
+		// Retrieve only starred references
+		starredRefs, err := repo.GetReferences(cat.Id, true)
+		require.NoError(t, err)
+
+		// Ensure the updated link reference is not included in starred references
+		for _, ref := range starredRefs {
+			if l, ok := ref.(model.LinkReference); ok && l.Id == link.Id {
+				assert.Fail(t, "Non-starred link reference should not be included in starred references")
+			}
+		}
+	})
+
+	t.Run("star link reference", func(t *testing.T) {
+		// Update the link reference and set it as starred
+		err := repo.UpdateLinkReference(link.Id, "Starred Link", "https://starred.com", "Starred Link Description", true)
+		require.NoError(t, err)
+
+		// Retrieve only starred references
+		starredRefs, err := repo.GetReferences(cat.Id, true)
+		require.NoError(t, err)
+
+		// Find the updated link reference in starred references
+		var found bool
+		for _, ref := range starredRefs {
+			if l, ok := ref.(model.LinkReference); ok && l.Id == link.Id {
+				found = true
+				assert.Equal(t, "Starred Link", l.Title)
+				assert.Equal(t, "https://starred.com", l.URL)
+				assert.Equal(t, "Starred Link Description", l.Description)
+				assert.True(t, l.Starred, "Link reference should be starred")
+			}
+		}
+		assert.True(t, found, "Starred link reference not found")
+
+		// Retrieve all references (non-starred included)
+		allRefs, err := repo.GetReferences(cat.Id, false)
+		require.NoError(t, err)
+
+		// Ensure the starred link reference is included in all references
+		var starredFound bool
+		for _, ref := range allRefs {
+			if l, ok := ref.(model.LinkReference); ok && l.Id == link.Id {
+				starredFound = true
+				assert.Equal(t, "Starred Link", l.Title)
+				assert.Equal(t, "https://starred.com", l.URL)
+				assert.Equal(t, "Starred Link Description", l.Description)
+				assert.True(t, l.Starred, "Link reference should be starred")
+			}
+		}
+		assert.True(t, starredFound, "Starred link reference not found in all references")
 	})
 
 	t.Run("update note reference", func(t *testing.T) {
-		err := repo.UpdateNoteReference(note.Id, "Updated Note", "Updated note text")
+		err := repo.UpdateNoteReference(note.Id, "Updated Note", "Updated note text", false)
 		require.NoError(t, err)
 
-		refs, err := repo.GetRefereces(cat.Id)
+		refs, err := repo.GetReferences(cat.Id, false)
 		require.NoError(t, err)
 
 		var found bool
@@ -338,25 +446,75 @@ func TestUpdatingReferences(t *testing.T) {
 				found = true
 				assert.Equal(t, "Updated Note", n.Title)
 				assert.Equal(t, "Updated note text", n.Text)
+				assert.False(t, n.Starred, "Note reference should not be starred")
 			}
 		}
 		assert.True(t, found, "Updated note reference not found")
+
+		// Retrieve only starred references
+		starredRefs, err := repo.GetReferences(cat.Id, true)
+		require.NoError(t, err)
+
+		// Ensure the updated note reference is not included in starred references
+		for _, ref := range starredRefs {
+			if n, ok := ref.(model.NoteReference); ok && n.Id == note.Id {
+				assert.Fail(t, "Non-starred note reference should not be included in starred references")
+			}
+		}
+	})
+
+	t.Run("star note reference", func(t *testing.T) {
+		// Update the note reference and set it as starred
+		err := repo.UpdateNoteReference(note.Id, "Starred Note", "Starred note text", true)
+		require.NoError(t, err)
+
+		// Retrieve only starred references
+		starredRefs, err := repo.GetReferences(cat.Id, true)
+		require.NoError(t, err)
+
+		// Find the updated note reference in starred references
+		var found bool
+		for _, ref := range starredRefs {
+			if n, ok := ref.(model.NoteReference); ok && n.Id == note.Id {
+				found = true
+				assert.Equal(t, "Starred Note", n.Title)
+				assert.Equal(t, "Starred note text", n.Text)
+				assert.True(t, n.Starred, "Note reference should be starred")
+			}
+		}
+		assert.True(t, found, "Starred note reference not found")
+
+		// Retrieve all references (non-starred included)
+		allRefs, err := repo.GetReferences(cat.Id, false)
+		require.NoError(t, err)
+
+		// Ensure the starred note reference is included in all references
+		var starredFound bool
+		for _, ref := range allRefs {
+			if n, ok := ref.(model.NoteReference); ok && n.Id == note.Id {
+				starredFound = true
+				assert.Equal(t, "Starred Note", n.Title)
+				assert.Equal(t, "Starred note text", n.Text)
+				assert.True(t, n.Starred, "Note reference should be starred")
+			}
+		}
+		assert.True(t, starredFound, "Starred note reference not found in all references")
 	})
 
 	t.Run("update non-existent book reference", func(t *testing.T) {
-		err := repo.UpdateBookReference(9999, "Doesn't Exist", "000-0000000000", "No Desc")
+		err := repo.UpdateBookReference(9999, "Doesn't Exist", "000-0000000000", "No Desc", false)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not find entity with specified id")
 	})
 
 	t.Run("update non-existent link reference", func(t *testing.T) {
-		err := repo.UpdateLinkReference(9999, "Doesn't Exist", "https://none.com", "No Desc")
+		err := repo.UpdateLinkReference(9999, "Doesn't Exist", "https://none.com", "No Desc", false)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not find entity with specified id")
 	})
 
 	t.Run("update non-existent note reference", func(t *testing.T) {
-		err := repo.UpdateNoteReference(9999, "Doesn't Exist", "No Text")
+		err := repo.UpdateNoteReference(9999, "Doesn't Exist", "No Text", false)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not find entity with specified id")
 	})
@@ -371,13 +529,13 @@ func TestDeletingReferences(t *testing.T) {
 	cat, err := repo.AddCategory("Test Category")
 	require.NoError(t, err)
 
-	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
+	book, err := repo.AddBookReference(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
 	require.NoError(t, err)
 
-	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
+	link, err := repo.AddLinkReference(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
 	require.NoError(t, err)
 
-	note, err := repo.AddNoteReferece(cat.Id, "Embedded & LLVM", "Look up resources.")
+	note, err := repo.AddNoteReference(cat.Id, "Embedded & LLVM", "Look up resources.")
 	require.NoError(t, err)
 
 	t.Run("delete middle reference", func(t *testing.T) {
@@ -386,7 +544,7 @@ func TestDeletingReferences(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify remaining references are reordered
-		refs, err := repo.GetRefereces(cat.Id)
+		refs, err := repo.GetReferences(cat.Id, false)
 		require.NoError(t, err)
 		assert.Len(t, refs, 2)
 		assert.Equal(t, book.Id, refs[0].(model.BookReference).Id)
@@ -409,7 +567,7 @@ func TestDeletingReferences(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify category is empty
-		refs, err := repo.GetRefereces(cat.Id)
+		refs, err := repo.GetReferences(cat.Id, false)
 		require.NoError(t, err)
 		assert.Empty(t, refs)
 	})
@@ -424,17 +582,17 @@ func TestReorderReferences(t *testing.T) {
 	cat, err := repo.AddCategory("Test Category")
 	require.NoError(t, err)
 
-	book, err := repo.AddBookReferece(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
+	book, err := repo.AddBookReference(cat.Id, "Clean Code", "978-0132350884", "A handbook of agile software craftsmanship")
 	require.NoError(t, err)
 
-	link, err := repo.AddLinkReferece(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
+	link, err := repo.AddLinkReference(cat.Id, "Go Blog", "https://go.dev/blog", "The Go Programming Language Blog")
 	require.NoError(t, err)
 
-	note, err := repo.AddNoteReferece(cat.Id, "Embedded & LLVM", "Look up resources.")
+	note, err := repo.AddNoteReference(cat.Id, "Embedded & LLVM", "Look up resources.")
 	require.NoError(t, err)
 
 	// Initial order should be book -> link -> note
-	refs, err := repo.GetRefereces(cat.Id)
+	refs, err := repo.GetReferences(cat.Id, false)
 	require.NoError(t, err)
 	assert.Equal(t, book.Id, refs[0].(model.BookReference).Id)
 	assert.Equal(t, link.Id, refs[1].(model.LinkReference).Id)
@@ -451,7 +609,7 @@ func TestReorderReferences(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify new order
-		refs, err = repo.GetRefereces(cat.Id)
+		refs, err = repo.GetReferences(cat.Id, false)
 		require.NoError(t, err)
 		assert.Equal(t, note.Id, refs[0].(model.NoteReference).Id)
 		assert.Equal(t, book.Id, refs[1].(model.BookReference).Id)
@@ -480,7 +638,7 @@ func TestReorderReferences(t *testing.T) {
 
 	otherCat, err := repo.AddCategory("Other Category")
 	require.NoError(t, err)
-	otherBook, err := repo.AddBookReferece(otherCat.Id, "Other Book", "123", "")
+	otherBook, err := repo.AddBookReference(otherCat.Id, "Other Book", "123", "")
 	require.NoError(t, err)
 	t.Run("reference from different category", func(t *testing.T) {
 		invalidPositions := map[int64]int{
@@ -514,7 +672,7 @@ func TestReorderReferences(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify new order
-		refs, err = repo.GetRefereces(cat.Id)
+		refs, err = repo.GetReferences(cat.Id, false)
 		require.NoError(t, err)
 		assert.Equal(t, link.Id, refs[0].(model.LinkReference).Id)
 		assert.Equal(t, note.Id, refs[1].(model.NoteReference).Id)

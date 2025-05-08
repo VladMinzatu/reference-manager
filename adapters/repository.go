@@ -131,14 +131,14 @@ func (r *SQLiteRepository) DeleteCategory(id int64) error {
 	return tx.Commit()
 }
 
-func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, error) {
+func (r *SQLiteRepository) GetReferences(categoryId int64, starredOnly bool) ([]model.Reference, error) {
 	const (
 		BOOK_TYPE = "book"
 		LINK_TYPE = "link"
 		NOTE_TYPE = "note"
 	)
 
-	rows, err := r.db.Query(`
+	query := `
 		SELECT br.id, br.title,
 			   CASE 
 				   WHEN bk.reference_id IS NOT NULL THEN ?
@@ -149,13 +149,21 @@ func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, er
 			   COALESCE(bk.description, '') as book_description,
 			   COALESCE(l.url, '') as url,
 			   COALESCE(l.description, '') as link_description,
-			   COALESCE(n.text, '') as text
+			   COALESCE(n.text, '') as text,
+			   br.is_starred
 		FROM base_references br
 		LEFT JOIN book_references bk ON br.id = bk.reference_id
 		LEFT JOIN link_references l ON br.id = l.reference_id
 		LEFT JOIN note_references n ON br.id = n.reference_id
-		WHERE br.category_id = ?
-		ORDER BY br.position`, BOOK_TYPE, LINK_TYPE, NOTE_TYPE, categoryId)
+		WHERE br.category_id = ?`
+
+	if starredOnly {
+		query += " AND br.is_starred = 1"
+	}
+
+	query += " ORDER BY br.position"
+
+	rows, err := r.db.Query(query, BOOK_TYPE, LINK_TYPE, NOTE_TYPE, categoryId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying references: %v", err)
 	}
@@ -165,23 +173,24 @@ func (r *SQLiteRepository) GetRefereces(categoryId int64) ([]model.Reference, er
 	for rows.Next() {
 		var id int64
 		var title, refType, isbn, bookDescription, url, linkDescription, text string
-		if err := rows.Scan(&id, &title, &refType, &isbn, &bookDescription, &url, &linkDescription, &text); err != nil {
+		var starred bool
+		if err := rows.Scan(&id, &title, &refType, &isbn, &bookDescription, &url, &linkDescription, &text, &starred); err != nil {
 			return nil, fmt.Errorf("error scanning reference: %v", err)
 		}
 
 		switch refType {
 		case BOOK_TYPE:
-			references = append(references, model.BookReference{Id: id, Title: title, ISBN: isbn, Description: bookDescription})
+			references = append(references, model.BookReference{Id: id, Title: title, ISBN: isbn, Description: bookDescription, Starred: starred})
 		case LINK_TYPE:
-			references = append(references, model.LinkReference{Id: id, Title: title, URL: url, Description: linkDescription})
+			references = append(references, model.LinkReference{Id: id, Title: title, URL: url, Description: linkDescription, Starred: starred})
 		case NOTE_TYPE:
-			references = append(references, model.NoteReference{Id: id, Title: title, Text: text})
+			references = append(references, model.NoteReference{Id: id, Title: title, Text: text, Starred: starred})
 		}
 	}
 	return references, nil
 }
 
-func (r *SQLiteRepository) AddBookReferece(categoryId int64, title string, isbn string, description string) (model.BookReference, error) {
+func (r *SQLiteRepository) AddBookReference(categoryId int64, title string, isbn string, description string) (model.BookReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.BookReference{}, err
@@ -197,7 +206,7 @@ func (r *SQLiteRepository) AddBookReferece(categoryId int64, title string, isbn 
 	return model.BookReference{Id: refId, Title: title, ISBN: isbn, Description: description}, nil
 }
 
-func (r *SQLiteRepository) UpdateBookReference(id int64, title string, isbn string, description string) error {
+func (r *SQLiteRepository) UpdateBookReference(id int64, title string, isbn string, description string, starred bool) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -205,7 +214,7 @@ func (r *SQLiteRepository) UpdateBookReference(id int64, title string, isbn stri
 	defer tx.Rollback()
 
 	// Update base_references table
-	result, err := tx.Exec("UPDATE base_references SET title = ? WHERE id = ?", title, id)
+	result, err := tx.Exec("UPDATE base_references SET title = ?, is_starred = ? WHERE id = ?", title, starred, id)
 	if err != nil {
 		return fmt.Errorf("error updating base reference: %v", err)
 	}
@@ -229,7 +238,7 @@ func (r *SQLiteRepository) UpdateBookReference(id int64, title string, isbn stri
 	return nil
 }
 
-func (r *SQLiteRepository) AddLinkReferece(categoryId int64, title string, url string, description string) (model.LinkReference, error) {
+func (r *SQLiteRepository) AddLinkReference(categoryId int64, title string, url string, description string) (model.LinkReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.LinkReference{}, err
@@ -245,7 +254,7 @@ func (r *SQLiteRepository) AddLinkReferece(categoryId int64, title string, url s
 	return model.LinkReference{Id: refId, Title: title, URL: url, Description: description}, nil
 }
 
-func (r *SQLiteRepository) UpdateLinkReference(id int64, title string, url string, description string) error {
+func (r *SQLiteRepository) UpdateLinkReference(id int64, title string, url string, description string, starred bool) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -253,7 +262,7 @@ func (r *SQLiteRepository) UpdateLinkReference(id int64, title string, url strin
 	defer tx.Rollback()
 
 	// Update base_references table
-	result, err := tx.Exec("UPDATE base_references SET title = ? WHERE id = ?", title, id)
+	result, err := tx.Exec("UPDATE base_references SET title = ?, is_starred = ? WHERE id = ?", title, starred, id)
 	if err != nil {
 		return fmt.Errorf("error updating base reference: %v", err)
 	}
@@ -277,7 +286,7 @@ func (r *SQLiteRepository) UpdateLinkReference(id int64, title string, url strin
 	return nil
 }
 
-func (r *SQLiteRepository) AddNoteReferece(categoryId int64, title string, text string) (model.NoteReference, error) {
+func (r *SQLiteRepository) AddNoteReference(categoryId int64, title string, text string) (model.NoteReference, error) {
 	refId, err := r.addBaseReference(categoryId, title)
 	if err != nil {
 		return model.NoteReference{}, err
@@ -293,7 +302,7 @@ func (r *SQLiteRepository) AddNoteReferece(categoryId int64, title string, text 
 	return model.NoteReference{Id: refId, Title: title, Text: text}, nil
 }
 
-func (r *SQLiteRepository) UpdateNoteReference(id int64, title string, text string) error {
+func (r *SQLiteRepository) UpdateNoteReference(id int64, title string, text string, starred bool) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -301,7 +310,7 @@ func (r *SQLiteRepository) UpdateNoteReference(id int64, title string, text stri
 	defer tx.Rollback()
 
 	// Update base_references table
-	result, err := tx.Exec("UPDATE base_references SET title = ? WHERE id = ?", title, id)
+	result, err := tx.Exec("UPDATE base_references SET title = ?, is_starred = ? WHERE id = ?", title, starred, id)
 	if err != nil {
 		return fmt.Errorf("error updating base reference: %v", err)
 	}
