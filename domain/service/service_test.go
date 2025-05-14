@@ -144,7 +144,7 @@ func TestUpdateBookReference(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	expectedBook := model.BookReference{Id: 1, Title: "Book", ISBN: "123", Description: "desc", Starred: false}
+	expectedBook := model.BookReference{BaseReference: model.BaseReference{Id: 1, Title: "Book", Starred: false}, ISBN: "123", Description: "desc"}
 	mockRepo.On("UpdateBookReference", int64(1), "Book", "123", "desc", false).Return(expectedBook, nil)
 
 	err := service.UpdateBookReference(1, "Book", "123", "desc", false)
@@ -169,7 +169,7 @@ func TestUpdateLinkReference(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	expectedLink := model.LinkReference{Id: 1, Title: "Link", URL: "http://a", Description: "desc", Starred: false}
+	expectedLink := model.LinkReference{BaseReference: model.BaseReference{Id: 1, Title: "Link", Starred: false}, URL: "http://a", Description: "desc"}
 	mockRepo.On("UpdateLinkReference", int64(1), "Link", "http://a", "desc", false).Return(expectedLink, nil)
 
 	err := service.UpdateLinkReference(1, "Link", "http://a", "desc", false)
@@ -194,7 +194,7 @@ func TestUpdateNoteReference(t *testing.T) {
 	mockRepo := new(MockRepository)
 	service := NewReferenceService(mockRepo)
 
-	expectedNote := model.NoteReference{Id: 1, Title: "Note", Text: "text", Starred: false}
+	expectedNote := model.NoteReference{BaseReference: model.BaseReference{Id: 1, Title: "Note", Starred: false}, Text: "text"}
 	mockRepo.On("UpdateNoteReference", int64(1), "Note", "text", false).Return(expectedNote, nil)
 
 	err := service.UpdateNoteReference(1, "Note", "text", false)

@@ -180,11 +180,11 @@ func (r *SQLiteRepository) GetReferences(categoryId int64, starredOnly bool) ([]
 
 		switch refType {
 		case BOOK_TYPE:
-			references = append(references, model.BookReference{Id: id, Title: title, ISBN: isbn, Description: bookDescription, Starred: starred})
+			references = append(references, model.BookReference{BaseReference: model.BaseReference{Id: id, Title: title, Starred: starred}, ISBN: isbn, Description: bookDescription})
 		case LINK_TYPE:
-			references = append(references, model.LinkReference{Id: id, Title: title, URL: url, Description: linkDescription, Starred: starred})
+			references = append(references, model.LinkReference{BaseReference: model.BaseReference{Id: id, Title: title, Starred: starred}, URL: url, Description: linkDescription})
 		case NOTE_TYPE:
-			references = append(references, model.NoteReference{Id: id, Title: title, Text: text, Starred: starred})
+			references = append(references, model.NoteReference{BaseReference: model.BaseReference{Id: id, Title: title, Starred: starred}, Text: text})
 		}
 	}
 	return references, nil
@@ -203,7 +203,7 @@ func (r *SQLiteRepository) AddBookReference(categoryId int64, title string, isbn
 		return model.BookReference{}, fmt.Errorf("error inserting book reference: %v", err)
 	}
 
-	return model.BookReference{Id: refId, Title: title, ISBN: isbn, Description: description}, nil
+	return model.BookReference{BaseReference: model.BaseReference{Id: refId, Title: title, Starred: false}, ISBN: isbn, Description: description}, nil
 }
 
 func (r *SQLiteRepository) UpdateBookReference(id int64, title string, isbn string, description string, starred bool) error {
@@ -251,7 +251,7 @@ func (r *SQLiteRepository) AddLinkReference(categoryId int64, title string, url 
 		return model.LinkReference{}, fmt.Errorf("error inserting link reference: %v", err)
 	}
 
-	return model.LinkReference{Id: refId, Title: title, URL: url, Description: description}, nil
+	return model.LinkReference{BaseReference: model.BaseReference{Id: refId, Title: title, Starred: false}, URL: url, Description: description}, nil
 }
 
 func (r *SQLiteRepository) UpdateLinkReference(id int64, title string, url string, description string, starred bool) error {
@@ -299,7 +299,7 @@ func (r *SQLiteRepository) AddNoteReference(categoryId int64, title string, text
 		return model.NoteReference{}, fmt.Errorf("error inserting note reference: %v", err)
 	}
 
-	return model.NoteReference{Id: refId, Title: title, Text: text}, nil
+	return model.NoteReference{BaseReference: model.BaseReference{Id: refId, Title: title, Starred: false}, Text: text}, nil
 }
 
 func (r *SQLiteRepository) UpdateNoteReference(id int64, title string, text string, starred bool) error {

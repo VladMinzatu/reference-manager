@@ -10,12 +10,16 @@ type Renderer interface {
 	RenderNote(reference NoteReference)
 }
 
+type BaseReference struct {
+	Id      int64
+	Title   string
+	Starred bool
+}
+
 type BookReference struct {
-	Id          int64
-	Title       string
+	BaseReference
 	ISBN        string
 	Description string
-	Starred     bool
 }
 
 func (b BookReference) Render(renderer Renderer) {
@@ -23,11 +27,9 @@ func (b BookReference) Render(renderer Renderer) {
 }
 
 type LinkReference struct {
-	Id          int64
-	Title       string
+	BaseReference
 	URL         string
 	Description string
-	Starred     bool
 }
 
 func (l LinkReference) Render(renderer Renderer) {
@@ -35,10 +37,8 @@ func (l LinkReference) Render(renderer Renderer) {
 }
 
 type NoteReference struct {
-	Id      int64
-	Title   string
-	Text    string
-	Starred bool
+	BaseReference
+	Text string
 }
 
 func (n NoteReference) Render(renderer Renderer) {
