@@ -333,18 +333,25 @@ func main() {
 type CLIReferenceRenderer struct{}
 
 func (r *CLIReferenceRenderer) RenderBook(ref model.BookReference) {
-	fmt.Printf("%d: [Book] %s\n", ref.Id, ref.Title)
+	fmt.Printf("%d: %s [Book] %s\n", ref.Id, r.StarChar(ref.Starred), ref.Title)
 	fmt.Printf("\t\t\tISBN: %s\n", ref.ISBN)
 	fmt.Printf("\t\t\tDescription: %s\n", ref.Description)
 }
 
 func (r *CLIReferenceRenderer) RenderLink(ref model.LinkReference) {
-	fmt.Printf("%d: [Link] %s\n", ref.Id, ref.Title)
+	fmt.Printf("%d: %s [Link] %s\n", ref.Id, r.StarChar(ref.Starred), ref.Title)
 	fmt.Printf("\t\t\tURL: %s\n", ref.URL)
 	fmt.Printf("\t\t\tDescription: %s\n", ref.Description)
 }
 
 func (r *CLIReferenceRenderer) RenderNote(ref model.NoteReference) {
-	fmt.Printf("%d: [Note] %s\n", ref.Id, ref.Title)
+	fmt.Printf("%d: %s [Note] %s\n", ref.Id, r.StarChar(ref.Starred), ref.Title)
 	fmt.Printf("\t\t\tText: %s\n", ref.Text)
+}
+
+func (r *CLIReferenceRenderer) StarChar(starred bool) string {
+	if starred {
+		return "★"
+	}
+	return "☆"
 }
