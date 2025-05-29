@@ -1,7 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"github.com/VladMinzatu/reference-manager/web"
+)
 
 func main() {
-	fmt.Println("Let's go!")
+	handler := web.NewHandler()
+	web.StartServer(handler)
 }
