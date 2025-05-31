@@ -8,6 +8,16 @@
 </head>
 
 <body>
-    <h1>Here. We. Go.</h1>
+    <h1>Categories</h1>
+    {{range .}}
+        <div>
+            <h2>{{.Category.Name}}</h2>
+            <ul>
+                {{range .References}}
+                    <li>{{.}}</li>
+                {{end}}
+            </ul>
+        </div>
+    {{end}}
 </body>
 </html>
