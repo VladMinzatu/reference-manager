@@ -4,7 +4,6 @@ import "net/http"
 
 /*
 Next steps:
-- Put categories on sidebar and interact with references for one category at a time
 - Add a form to add new categories
 - Add a form to add new references
 - Add a form to edit existing references

@@ -11,6 +11,20 @@
         .category-link { display: block; margin-bottom: 0.5em; cursor: pointer; }
         .category-link.active { font-weight: bold; }
     </style>
+
+    <!-- This script handles the active state of category links without reloading the category list. -->
+    <script>
+        document.addEventListener('htmx:afterOnLoad', function(evt) {
+        // Remove 'active' from all category links
+        document.querySelectorAll('.category-link').forEach(function(link) {
+            link.classList.remove('active');
+        });
+        // Add 'active' to the clicked link
+        if (evt.detail.elt.classList.contains('category-link')) {
+            evt.detail.elt.classList.add('active');
+        }
+        });
+    </script>
 </head>
 
 <body>
