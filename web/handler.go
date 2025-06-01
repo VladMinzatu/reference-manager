@@ -5,6 +5,8 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
 	"github.com/VladMinzatu/reference-manager/domain/service"
@@ -22,25 +24,46 @@ func NewHandler(svc *service.ReferenceService) *Handler {
 
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 	categories, _ := h.svc.GetAllCategories()
-	type CategoryData struct {
-		Category   model.Category
-		References []template.HTML
-	}
-	var data []CategoryData
+	data := struct {
+		Categories       []model.Category
+		ActiveCategoryId int64
+		References       []template.HTML
+	}{}
 
-	for _, cat := range categories {
-		renderer := NewHTMLReferenceRenderer(h.template)
-		refs, _ := h.svc.GetReferences(cat.Id, false)
-		for _, ref := range refs {
-			ref.Render(renderer)
-		}
-		data = append(data, CategoryData{
-			Category:   cat,
-			References: renderer.Collect(),
-		})
+	var activeCategoryId int64
+	if len(categories) == 0 {
+		h.template.ExecuteTemplate(w, "index.html", data)
 	}
 
+	activeCategoryId = categories[0].Id
+	references := h.renderReferences(activeCategoryId)
+
+	data.Categories = categories
+	data.ActiveCategoryId = activeCategoryId
+	data.References = references
 	h.template.ExecuteTemplate(w, "index.html", data)
+}
+
+func (h *Handler) CategoryReferences(w http.ResponseWriter, r *http.Request) {
+	// TODO: Use gorilla/mux or similar to handle path parameters more elegantly
+	path := r.URL.Path // e.g., "/category/{id}/references"
+	parts := strings.Split(path, "/")
+	if len(parts) < 3 || parts[1] != "category" || parts[2] == "" {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+	}
+
+	id, _ := strconv.ParseInt(parts[2], 10, 64)
+	references := h.renderReferences(id)
+	h.template.ExecuteTemplate(w, "references", references)
+}
+
+func (h *Handler) renderReferences(categoryId int64) []template.HTML {
+	refs, _ := h.svc.GetReferences(categoryId, false)
+	renderer := NewHTMLReferenceRenderer(h.template)
+	for _, ref := range refs {
+		ref.Render(renderer)
+	}
+	return renderer.collected
 }
 
 type HTMLReferenceRenderer struct {

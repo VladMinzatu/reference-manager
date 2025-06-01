@@ -2,22 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reference Manager</title>
     <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <style>
+        body { display: flex; }
+        #sidebar { width: 250px; border-right: 1px solid #ccc; padding: 1em; }
+        #main { flex: 1; padding: 1em; }
+        .category-link { display: block; margin-bottom: 0.5em; cursor: pointer; }
+        .category-link.active { font-weight: bold; }
+    </style>
 </head>
 
 <body>
-    <h1>Categories</h1>
-    {{range .}}
-        <div>
-            <h2>{{.Category.Name}}</h2>
-            <ul>
-                {{range .References}}
-                    <li>{{.}}</li>
-                {{end}}
-            </ul>
-        </div>
-    {{end}}
+    <div id="sidebar">
+        <h2>Categories</h2>
+        {{range .Categories}}
+            <a 
+                href="#" 
+                class="category-link{{if eq .Id $.ActiveCategoryId}} active{{end}}"
+                hx-get="/category/{{.Id}}/references"
+                hx-target="#main"
+                hx-swap="innerHTML"
+            >{{.Name}}</a>
+        {{end}}
+    </div>
+    <div id="main">
+        {{template "references" .References}}
+    </div>
 </body>
 </html>

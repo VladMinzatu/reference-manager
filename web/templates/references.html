@@ -1,0 +1,10 @@
+{{define "references"}}
+    <h2>References</h2>
+    <ul>
+        {{range .}}
+            {{.}}
+        {{else}}
+            <li>No references found.</li>
+        {{end}}
+    </ul>
+{{end}}
