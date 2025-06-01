@@ -37,11 +37,12 @@
                 hx-get="/category/{{.Id}}/references"
                 hx-target="#main"
                 hx-swap="innerHTML"
+                hx-vals='{"categoryName": "{{js .Name}}"}'
             >{{.Name}}</a>
         {{end}}
     </div>
     <div id="main">
-        {{template "references" .References}}
+        {{template "references" .ReferenceData}}
     </div>
 </body>
 </html>

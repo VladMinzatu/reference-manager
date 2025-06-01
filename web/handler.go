@@ -17,6 +17,17 @@ type Handler struct {
 	template *template.Template
 }
 
+type IndexData struct {
+	Categories       []model.Category
+	ActiveCategoryId int64
+	ReferenceData    ReferenceData
+}
+
+type ReferenceData struct {
+	CategoryName string
+	References   []template.HTML
+}
+
 func NewHandler(svc *service.ReferenceService) *Handler {
 	tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
 	return &Handler{svc: svc, template: tmpl}
@@ -24,23 +35,22 @@ func NewHandler(svc *service.ReferenceService) *Handler {
 
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 	categories, _ := h.svc.GetAllCategories()
-	data := struct {
-		Categories       []model.Category
-		ActiveCategoryId int64
-		References       []template.HTML
-	}{}
+	var data IndexData
 
-	var activeCategoryId int64
 	if len(categories) == 0 {
 		h.template.ExecuteTemplate(w, "index.html", data)
 	}
+	activeCategoryId := categories[0].Id
+	activeCategoryName := categories[0].Name
 
-	activeCategoryId = categories[0].Id
 	references := h.renderReferences(activeCategoryId)
 
 	data.Categories = categories
 	data.ActiveCategoryId = activeCategoryId
-	data.References = references
+	data.ReferenceData = ReferenceData{
+		CategoryName: activeCategoryName,
+		References:   references}
+
 	h.template.ExecuteTemplate(w, "index.html", data)
 }
 
@@ -51,10 +61,16 @@ func (h *Handler) CategoryReferences(w http.ResponseWriter, r *http.Request) {
 	if len(parts) < 3 || parts[1] != "category" || parts[2] == "" {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 	}
-
 	id, _ := strconv.ParseInt(parts[2], 10, 64)
 	references := h.renderReferences(id)
-	h.template.ExecuteTemplate(w, "references", references)
+
+	categoryName := r.URL.Query().Get("categoryName")
+	data := ReferenceData{
+		CategoryName: categoryName,
+		References:   references,
+	}
+
+	h.template.ExecuteTemplate(w, "references", data)
 }
 
 func (h *Handler) renderReferences(categoryId int64) []template.HTML {

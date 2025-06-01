@@ -1,7 +1,7 @@
 {{define "references"}}
-    <h2>References</h2>
+    <h2>References - {{ .CategoryName }}</h2>
     <ul>
-        {{range .}}
+        {{range .References}}
             {{.}}
         {{else}}
             <li>No references found.</li>
