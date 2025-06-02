@@ -40,6 +40,16 @@
                 hx-vals='{"categoryName": "{{js .Name}}"}'
             >{{.Name}}</a>
         {{end}}
+          <button 
+            id="add-category-btn"
+            hx-get="/add-category-modal-form"
+            hx-target="#modal-container"
+            hx-trigger="click" 
+            hx-swap="innerHTML">
+            + Add Category
+        </button>
+
+        <div id="modal-container"></div>
     </div>
     <div id="main">
         {{template "references" .ReferenceData}}

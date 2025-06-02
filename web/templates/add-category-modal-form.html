@@ -1,0 +1,11 @@
+<div id="add-category-modal-form" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
+    <div style="background:#fff;padding:2em;border-radius:8px;min-width:300px;position:relative;">
+        <h3>Add New Category</h3>
+        <form hx-post="/categories" hx-target="#sidebar" hx-swap="beforeend">
+            <input type="text" name="name" placeholder="Category Name" required>
+            <br><br>
+            <button type="submit">Add</button>
+            <button type="button" onclick="document.getElementById('add-category-modal-form').remove()">Cancel</button>
+        </form>
+    </div>
+</div>

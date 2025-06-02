@@ -73,6 +73,10 @@ func (h *Handler) CategoryReferences(w http.ResponseWriter, r *http.Request) {
 	h.template.ExecuteTemplate(w, "references", data)
 }
 
+func (h *Handler) AddCategoryModalForm(w http.ResponseWriter, r *http.Request) {
+	h.template.ExecuteTemplate(w, "add-category-modal-form.html", nil)
+}
+
 func (h *Handler) renderReferences(categoryId int64) []template.HTML {
 	refs, _ := h.svc.GetReferences(categoryId, false)
 	renderer := NewHTMLReferenceRenderer(h.template)

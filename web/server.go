@@ -20,6 +20,7 @@ Next steps:
 func StartServer(handler *Handler) error {
 	http.HandleFunc("/", handler.Index)
 	http.HandleFunc("/category/", handler.CategoryReferences)
+	http.HandleFunc("/add-category-modal-form", handler.AddCategoryModalForm)
 
 	return http.ListenAndServe(":8080", nil)
 }
