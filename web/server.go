@@ -9,7 +9,7 @@ Next steps:
 - Add a form to edit existing references
 - Button to delete references with confirmation
 - Interactivity to reorder categories and references
-- Optional: add pagination for references
+- Optional: implement lazy loading / infinite scroll for references using hx-trigger="revealed"
 - Optional: Add a search bar
 
 - DDD review and refactor: service -> aggregates and how aggregate roots integrate the repository
