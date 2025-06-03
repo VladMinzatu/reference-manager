@@ -12,6 +12,8 @@ Next steps:
 - Optional: add pagination for references
 - Optional: Add a search bar
 
+- DDD review and refactor: service -> aggregates and how aggregate roots integrate the repository
+
 - Implement error handling for the server start.
 - Add logging
 - Configs for db settings
