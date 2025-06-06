@@ -1,8 +1,6 @@
 {{define "_note"}}
 <div class="note">
-  {{if .Starred}}
-    <span title="Starred" style="color: gold; font-size: 1.2em;">&#9733;</span>
-  {{end}}
+  {{template "_starred" .}}
   <strong>{{.Title}}</strong>
   <span class="note-text">{{.Text}}</span>
 </div>

@@ -1,8 +1,6 @@
 {{define "_link"}}
 <div class="link">
-  {{if .Starred}}
-    <span title="Starred" style="color: gold; font-size: 1.2em;">&#9733;</span>
-  {{end}}
+  {{template "_starred" .}}
   <strong>{{.Title}}</strong>
   <span class="link-url">{{.URL}}</span>
   <span class="link-description">{{.Description}}</span>
