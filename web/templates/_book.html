@@ -1,8 +1,10 @@
 {{define "_book"}}
-<div class="book">
-  {{template "_starred" .}}
-  <strong>{{.Title}}</strong>
-  <span class="book-isbn">{{.ISBN}}</span>
-  <span class="book-description">{{.Description}}</span>
-</div>
+<li class="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3 border border-gray-100">
+  <div>
+    {{template "_starred" .}}
+    <div class="font-medium text-gray-900">{{.Title}}</div>
+    <div class="text-sm text-gray-500">ISBN: {{.ISBN}}</div>
+    <div class="text-sm text-gray-500">{{.Description}}</div>
+  </div>
+</li>
 {{end}}

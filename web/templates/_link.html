@@ -1,8 +1,10 @@
 {{define "_link"}}
-<div class="link">
-  {{template "_starred" .}}
-  <strong>{{.Title}}</strong>
-  <span class="link-url">{{.URL}}</span>
-  <span class="link-description">{{.Description}}</span>
-</div>
+<li class="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3 border border-gray-100">
+  <div>
+    {{template "_starred" .}}
+    <div class="font-medium text-gray-900">{{.Title}}</div>
+    <a href="{{.Url}}" target="_blank" class="text-blue-600 hover:underline text-sm">{{.Url}}</a>
+    <div class="text-sm text-gray-500">{{.Description}}</div>
+  </div>
+</li>
 {{end}}

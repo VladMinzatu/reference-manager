@@ -4,61 +4,64 @@
     <meta charset="UTF-8">
     <title>Reference Manager</title>
     <script src="https://unpkg.com/htmx.org@1.9.4"></script>
-    <style>
-        body { display: flex; }
-        #sidebar { width: 250px; border-right: 1px solid #ccc; padding: 1em; }
-        #main { flex: 1; padding: 1em; }
-        .category-link { display: block; margin-bottom: 0.5em; cursor: pointer; }
-        .category-link.active { font-weight: bold; }
-    </style>
-
-    <!-- This script handles the active state of category links without reloading the category list. -->
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         document.addEventListener('htmx:afterOnLoad', function(evt) {
-        // Remove 'active' from all category links
-        document.querySelectorAll('.category-link').forEach(function(link) {
-            link.classList.remove('active');
-        });
-        // Add 'active' to the clicked link
-        if (evt.detail.elt.classList.contains('category-link')) {
-            evt.detail.elt.classList.add('active');
-        }
+            document.querySelectorAll('.category-link').forEach(function(link) {
+                link.classList.remove('active');
+            });
+            if (evt.detail.elt.classList.contains('category-link')) {
+                evt.detail.elt.classList.add('active');
+            }
         });
     </script>
+    <style>
+        /* Remove old CSS, now using Tailwind */
+        .category-link.active { font-weight: bold; }
+    </style>
 </head>
 
-<body>
-    <div id="sidebar">
-        <h2>Categories</h2>
+<body class="bg-gray-50 min-h-screen flex">
+    <div id="sidebar" class="w-64 bg-white border-r border-gray-200 p-6 flex flex-col gap-4 min-h-screen">
+        <h2 class="text-lg font-semibold text-gray-800 mb-2">Categories</h2>
+        <div class="flex flex-col gap-2">
         {{range .Categories}}
-            <a 
-                href="#" 
-                class="category-link{{if eq .Id $.ActiveCategoryId}} active{{end}}"
-                hx-get="/category/{{.Id}}/references"
-                hx-target="#main"
-                hx-swap="innerHTML"
-                hx-vals='{"categoryName": "{{js .Name}}"}'
-            >{{.Name}}</a>
-            <button hx-delete="/categories/{{.Id}}"
-                hx-target="#sidebar"
-                hx-swap="beforeend"
-                hx-confirm="Are you sure you want to delete this category?"
-                hx-trigger="click">
-                Delete
-            </button>
+            <div class="flex items-center gap-2 justify-between">
+                <a 
+                    href="#" 
+                    class="category-link{{if eq .Id $.ActiveCategoryId}} active{{end}} px-3 py-2 rounded transition 
+                        text-gray-700 hover:bg-blue-100 hover:text-blue-700
+                        {{if eq .Id $.ActiveCategoryId}} bg-blue-100 text-blue-700 font-semibold{{end}}"
+                    hx-get="/category/{{.Id}}/references"
+                    hx-target="#main"
+                    hx-swap="innerHTML"
+                    hx-vals='{"categoryName": "{{js .Name}}"}'
+                >{{.Name}}</a>
+                <button 
+                    class="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded transition"
+                    hx-delete="/categories/{{.Id}}"
+                    hx-target="#sidebar"
+                    hx-swap="beforeend"
+                    hx-confirm="Are you sure you want to delete this category?"
+                    hx-trigger="click">
+                    Delete
+                </button>
+            </div>
         {{end}}
-          <button 
+        </div>
+        <button 
             id="add-category-btn"
+            class="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
             hx-get="/add-category-form"
             hx-target="#modal-container"
             hx-trigger="click" 
             hx-swap="innerHTML">
             + Add Category
         </button>
-
         <div id="modal-container"></div>
     </div>
-    <div id="main">
+    <div id="main" class="flex-1 p-8">
         {{template "references" .ReferenceData}}
     </div>
 </body>

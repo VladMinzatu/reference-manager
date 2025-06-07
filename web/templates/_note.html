@@ -1,7 +1,9 @@
 {{define "_note"}}
-<div class="note">
-  {{template "_starred" .}}
-  <strong>{{.Title}}</strong>
-  <span class="note-text">{{.Text}}</span>
-</div>
+<li class="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3 border border-gray-100">
+  <div>
+    {{template "_starred" .}}
+    <div class="font-medium text-gray-900">{{.Title}}</div>
+    <div class="text-sm text-gray-500">{{.Content}}</div>
+  </div>
+</li>
 {{end}}

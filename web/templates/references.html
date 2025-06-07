@@ -1,10 +1,14 @@
 {{define "references"}}
-    <h2>References - {{ .CategoryName }}</h2>
-    <ul>
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">{{.CategoryName}}</h1>
+    </div>
+    <ul class="space-y-3">
         {{range .References}}
             {{.}}
         {{else}}
-            <li>No references found.</li>
+        <li class="text-gray-500 text-center py-8">No references found in this category.</li>
         {{end}}
     </ul>
+</div>
 {{end}}
