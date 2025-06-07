@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
 	"github.com/VladMinzatu/reference-manager/domain/service"
+	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
@@ -33,12 +33,14 @@ func NewHandler(svc *service.ReferenceService) *Handler {
 	return &Handler{svc: svc, template: tmpl}
 }
 
-func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Index(c *gin.Context) {
 	categories, _ := h.svc.GetAllCategories()
 	var data IndexData
 
 	if len(categories) == 0 {
-		h.template.ExecuteTemplate(w, "index.html", data)
+		c.Status(http.StatusOK)
+		h.template.ExecuteTemplate(c.Writer, "index.html", data)
+		return
 	}
 	activeCategoryId := categories[0].Id
 	activeCategoryName := categories[0].Name
@@ -49,32 +51,39 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 	data.ActiveCategoryId = activeCategoryId
 	data.ReferenceData = ReferenceData{
 		CategoryName: activeCategoryName,
-		References:   references}
+		References:   references,
+	}
 
-	h.template.ExecuteTemplate(w, "index.html", data)
+	c.Status(http.StatusOK)
+	h.template.ExecuteTemplate(c.Writer, "index.html", data)
 }
 
-func (h *Handler) CategoryReferences(w http.ResponseWriter, r *http.Request) {
-	// TODO: Use gorilla/mux or similar to handle path parameters more elegantly
-	path := r.URL.Path // e.g., "/category/{id}/references"
-	parts := strings.Split(path, "/")
-	if len(parts) < 3 || parts[1] != "category" || parts[2] == "" {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
+func (h *Handler) CategoryReferences(c *gin.Context) {
+	idStr := c.Param("id")
+	if idStr == "" {
+		c.String(http.StatusBadRequest, "Invalid path")
+		return
 	}
-	id, _ := strconv.ParseInt(parts[2], 10, 64)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category id")
+		return
+	}
 	references := h.renderReferences(id)
 
-	categoryName := r.URL.Query().Get("categoryName")
+	categoryName := c.Query("categoryName")
 	data := ReferenceData{
 		CategoryName: categoryName,
 		References:   references,
 	}
 
-	h.template.ExecuteTemplate(w, "references", data)
+	c.Status(http.StatusOK)
+	h.template.ExecuteTemplate(c.Writer, "references", data)
 }
 
-func (h *Handler) AddCategoryModalForm(w http.ResponseWriter, r *http.Request) {
-	h.template.ExecuteTemplate(w, "add-category-modal-form.html", nil)
+func (h *Handler) AddCategoryForm(c *gin.Context) {
+	c.Status(http.StatusOK)
+	h.template.ExecuteTemplate(c.Writer, "add-category-form.html", nil)
 }
 
 func (h *Handler) renderReferences(categoryId int64) []template.HTML {
@@ -115,7 +124,6 @@ func (r *HTMLReferenceRenderer) Render(rendererName string, ref model.Reference)
 	}
 	r.collected = append(r.collected, template.HTML(buf.String()))
 }
-
 func (r *HTMLReferenceRenderer) Collect() []template.HTML {
 	return r.collected
 }

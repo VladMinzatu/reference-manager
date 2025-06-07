@@ -1,6 +1,8 @@
 package web
 
-import "net/http"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 /*
 Next steps:
@@ -20,9 +22,18 @@ Next steps:
 - Add graceful shutdown
 */
 func StartServer(handler *Handler) error {
-	http.HandleFunc("/", handler.Index)
-	http.HandleFunc("/category/", handler.CategoryReferences)
-	http.HandleFunc("/add-category-modal-form", handler.AddCategoryModalForm)
+	r := gin.Default()
 
-	return http.ListenAndServe(":8080", nil)
+	// Serve static files
+	r.Static("/static", "./web/static")
+
+	// Load templates
+	r.LoadHTMLGlob("web/templates/*.html")
+
+	// Routes
+	r.GET("/", handler.Index)
+	r.GET("/category/:id/references", handler.CategoryReferences)
+	r.GET("/add-category-form", handler.AddCategoryForm)
+
+	return r.Run(":8080")
 }
