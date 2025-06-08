@@ -86,6 +86,31 @@ func (h *Handler) AddCategoryForm(c *gin.Context) {
 	h.template.ExecuteTemplate(c.Writer, "add-category-form.html", nil)
 }
 
+func (h *Handler) CreateCategory(c *gin.Context) {
+	name := c.PostForm("name")
+	if name == "" {
+		c.String(http.StatusBadRequest, "Category name required")
+		return
+	}
+	category, err := h.svc.AddCategory(name)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to create category")
+		return
+	}
+	categories, _ := h.svc.GetAllCategories()
+
+	data := IndexData{
+		Categories:       categories,
+		ActiveCategoryId: category.Id,
+		ReferenceData: ReferenceData{
+			CategoryName: category.Name,
+			References:   []template.HTML{},
+		},
+	}
+
+	c.HTML(http.StatusOK, "sidebar", data)
+}
+
 func (h *Handler) renderReferences(categoryId int64) []template.HTML {
 	refs, _ := h.svc.GetReferences(categoryId, false)
 	renderer := NewHTMLReferenceRenderer(h.template)

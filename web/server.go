@@ -32,8 +32,9 @@ func StartServer(handler *Handler) error {
 
 	// Routes
 	r.GET("/", handler.Index)
-	r.GET("/category/:id/references", handler.CategoryReferences)
+	r.GET("/categories/:id/references", handler.CategoryReferences)
 	r.GET("/add-category-form", handler.AddCategoryForm)
+	r.POST("/categories", handler.CreateCategory)
 
 	return r.Run(":8080")
 }

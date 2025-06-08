@@ -4,9 +4,8 @@
         <form 
             hx-post="/categories" 
             hx-target="#sidebar" 
-            hx-swap="beforeend" 
-            class="space-y-4"
-            hx-on:htmx:afterRequest="document.getElementById('add-category-form').remove()">
+            hx-swap="outerHTML"
+            class="space-y-4">
             <input 
                 type="text" 
                 name="name" 
