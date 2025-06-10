@@ -17,13 +17,12 @@ type Handler struct {
 	template *template.Template
 }
 
-type IndexData struct {
+type SidebarData struct {
 	Categories       []model.Category
 	ActiveCategoryId int64
-	ReferenceData    ReferenceData
 }
 
-type ReferenceData struct {
+type ReferencesData struct {
 	CategoryName string
 	References   []template.HTML
 }
@@ -35,27 +34,27 @@ func NewHandler(svc *service.ReferenceService) *Handler {
 
 func (h *Handler) Index(c *gin.Context) {
 	categories, _ := h.svc.GetAllCategories()
-	var data IndexData
+	var activeCategoryId int64
+	var activeCategoryName string
+	var references []template.HTML
 
-	if len(categories) == 0 {
-		c.Status(http.StatusOK)
-		h.template.ExecuteTemplate(c.Writer, "index.html", data)
-		return
-	}
-	activeCategoryId := categories[0].Id
-	activeCategoryName := categories[0].Name
-
-	references := h.renderReferences(activeCategoryId)
-
-	data.Categories = categories
-	data.ActiveCategoryId = activeCategoryId
-	data.ReferenceData = ReferenceData{
-		CategoryName: activeCategoryName,
-		References:   references,
+	if len(categories) > 0 {
+		activeCategoryId = categories[0].Id
+		activeCategoryName = categories[0].Name
+		references = h.renderReferences(activeCategoryId)
 	}
 
-	c.Status(http.StatusOK)
-	h.template.ExecuteTemplate(c.Writer, "index.html", data)
+	// Render the full page with both components
+	c.HTML(http.StatusOK, "index.html", gin.H{
+		"sidebar": SidebarData{
+			Categories:       categories,
+			ActiveCategoryId: activeCategoryId,
+		},
+		"references": ReferencesData{
+			CategoryName: activeCategoryName,
+			References:   references,
+		},
+	})
 }
 
 func (h *Handler) CategoryReferences(c *gin.Context) {
@@ -72,13 +71,12 @@ func (h *Handler) CategoryReferences(c *gin.Context) {
 	references := h.renderReferences(id)
 
 	categoryName := c.Query("categoryName")
-	data := ReferenceData{
+	data := ReferencesData{
 		CategoryName: categoryName,
 		References:   references,
 	}
 
-	c.Status(http.StatusOK)
-	h.template.ExecuteTemplate(c.Writer, "references", data)
+	c.HTML(http.StatusOK, "references", data)
 }
 
 func (h *Handler) AddCategoryForm(c *gin.Context) {
@@ -99,13 +97,9 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	}
 	categories, _ := h.svc.GetAllCategories()
 
-	data := IndexData{
+	data := SidebarData{
 		Categories:       categories,
 		ActiveCategoryId: category.Id,
-		ReferenceData: ReferenceData{
-			CategoryName: category.Name,
-			References:   []template.HTML{},
-		},
 	}
 
 	c.HTML(http.StatusOK, "sidebar", data)
@@ -135,13 +129,9 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 		activeCategoryId = categories[0].Id
 	}
 
-	data := IndexData{
+	data := SidebarData{
 		Categories:       categories,
 		ActiveCategoryId: activeCategoryId,
-		ReferenceData: ReferenceData{
-			CategoryName: "",
-			References:   []template.HTML{},
-		},
 	}
 
 	c.HTML(http.StatusOK, "sidebar", data)
