@@ -97,12 +97,17 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	}
 	categories, _ := h.svc.GetAllCategories()
 
-	data := SidebarData{
-		Categories:       categories,
-		ActiveCategoryId: category.Id,
-	}
-
-	c.HTML(http.StatusOK, "sidebar", data)
+	// Alternative here would be to just return c.HTML(.., "sidebar") and use custom client-side JS and HTMX event (triggered on both delete and add-form-sumbmit) to update the the references when the sidebar is updated.
+	c.HTML(http.StatusOK, "body-fragment", gin.H{
+		"sidebar": SidebarData{
+			Categories:       categories,
+			ActiveCategoryId: category.Id,
+		},
+		"references": ReferencesData{
+			CategoryName: category.Name,
+			References:   []template.HTML{},
+		},
+	})
 }
 
 func (h *Handler) DeleteCategory(c *gin.Context) {
@@ -122,19 +127,34 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 		return
 	}
 
-	// Get updated categories list and render the sidebar
+	// Get updated categories list
+	// TODO: error handling
 	categories, _ := h.svc.GetAllCategories()
 	var activeCategoryId int64
+	var activeCategoryName string
 	if len(categories) > 0 {
 		activeCategoryId = categories[0].Id
+		activeCategoryName = categories[0].Name
 	}
 
-	data := SidebarData{
-		Categories:       categories,
-		ActiveCategoryId: activeCategoryId,
+	// TODO: error handling
+	references, _ := h.svc.GetReferences(activeCategoryId, false)
+	renderer := NewHTMLReferenceRenderer(h.template)
+	for _, ref := range references {
+		ref.Render(renderer)
 	}
 
-	c.HTML(http.StatusOK, "sidebar", data)
+	// Alternative here would be to just return c.HTML(.., "sidebar") and use custom client-side JS and HTMX event (triggered on both delete and add-form-sumbmit) to update the the references when the sidebar is updated.
+	c.HTML(http.StatusOK, "body-fragment", gin.H{
+		"sidebar": SidebarData{
+			Categories:       categories,
+			ActiveCategoryId: activeCategoryId,
+		},
+		"references": ReferencesData{
+			CategoryName: activeCategoryName,
+			References:   renderer.Collect(),
+		},
+	})
 }
 
 func (h *Handler) renderReferences(categoryId int64) []template.HTML {

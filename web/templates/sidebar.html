@@ -19,7 +19,7 @@
             <button 
                 class="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded transition"
                 hx-delete="/categories/{{.Id}}"
-                hx-target="#sidebar"
+                hx-target="#body-fragment"
                 hx-swap="outerHTML"
                 hx-confirm="Are you sure you want to delete this category?"
                 hx-trigger="click">

@@ -22,10 +22,16 @@
     </script>
 </head>
 
-<body class="bg-gray-50 min-h-screen flex">
+<body>
+    {{template "body-fragment" .}}
+</body>
+</html>
+
+{{define "body-fragment"}}
+<div id="body-fragment" class="bg-gray-50 min-h-screen flex">
     {{template "sidebar" .sidebar}}
     <div id="main" class="flex-1 p-8">
         {{template "references" .references}}
     </div>
-</body>
-</html>
+</div>
+{{end}}
