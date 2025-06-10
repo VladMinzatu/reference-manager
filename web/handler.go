@@ -111,6 +111,42 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	c.HTML(http.StatusOK, "sidebar", data)
 }
 
+func (h *Handler) DeleteCategory(c *gin.Context) {
+	idStr := c.Param("id")
+	if idStr == "" {
+		c.String(http.StatusBadRequest, "Invalid path")
+		return
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category id")
+		return
+	}
+
+	if err := h.svc.DeleteCategory(id); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to delete category")
+		return
+	}
+
+	// Get updated categories list and render the sidebar
+	categories, _ := h.svc.GetAllCategories()
+	var activeCategoryId int64
+	if len(categories) > 0 {
+		activeCategoryId = categories[0].Id
+	}
+
+	data := IndexData{
+		Categories:       categories,
+		ActiveCategoryId: activeCategoryId,
+		ReferenceData: ReferenceData{
+			CategoryName: "",
+			References:   []template.HTML{},
+		},
+	}
+
+	c.HTML(http.StatusOK, "sidebar", data)
+}
+
 func (h *Handler) renderReferences(categoryId int64) []template.HTML {
 	refs, _ := h.svc.GetReferences(categoryId, false)
 	renderer := NewHTMLReferenceRenderer(h.template)
