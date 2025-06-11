@@ -23,8 +23,13 @@ type SidebarData struct {
 }
 
 type ReferencesData struct {
+	CategoryId   int64
 	CategoryName string
 	References   []template.HTML
+}
+
+type AddReferenceFormData struct {
+	CategoryId int64
 }
 
 func NewHandler(svc *service.ReferenceService) *Handler {
@@ -51,6 +56,7 @@ func (h *Handler) Index(c *gin.Context) {
 			ActiveCategoryId: activeCategoryId,
 		},
 		"references": ReferencesData{
+			CategoryId:   activeCategoryId,
 			CategoryName: activeCategoryName,
 			References:   references,
 		},
@@ -72,6 +78,7 @@ func (h *Handler) CategoryReferences(c *gin.Context) {
 
 	categoryName := c.Query("categoryName")
 	data := ReferencesData{
+		CategoryId:   id,
 		CategoryName: categoryName,
 		References:   references,
 	}
@@ -104,6 +111,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 			ActiveCategoryId: category.Id,
 		},
 		"references": ReferencesData{
+			CategoryId:   category.Id,
 			CategoryName: category.Name,
 			References:   []template.HTML{},
 		},
@@ -151,6 +159,7 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 			ActiveCategoryId: activeCategoryId,
 		},
 		"references": ReferencesData{
+			CategoryId:   activeCategoryId,
 			CategoryName: activeCategoryName,
 			References:   renderer.Collect(),
 		},
@@ -197,4 +206,103 @@ func (r *HTMLReferenceRenderer) Render(rendererName string, ref model.Reference)
 }
 func (r *HTMLReferenceRenderer) Collect() []template.HTML {
 	return r.collected
+}
+
+func (h *Handler) AddReferenceForm(c *gin.Context) {
+	categoryId := c.Query("categoryId")
+	if categoryId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "categoryId is required"})
+		return
+	}
+
+	id, err := strconv.ParseInt(categoryId, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid categoryId"})
+		return
+	}
+
+	c.HTML(http.StatusOK, "add-reference-form", AddReferenceFormData{
+		CategoryId: id,
+	})
+}
+
+func (h *Handler) CreateReference(c *gin.Context) {
+	categoryIdStr := c.PostForm("categoryId")
+	categoryId, err := strconv.ParseInt(categoryIdStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid categoryId"})
+		return
+	}
+
+	refType := c.PostForm("type")
+	if refType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type is required"})
+		return
+	}
+
+	title := c.PostForm("title")
+	if title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title is required"})
+		return
+	}
+
+	starred := c.PostForm("starred") == "on"
+
+	switch refType {
+	case "book":
+		book, err := h.svc.AddBookReference(categoryId, title, c.PostForm("isbn"), c.PostForm("description"))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create book reference"})
+			return
+		}
+		if starred {
+			if err := h.svc.UpdateBookReference(book.Id, book.Title, book.ISBN, book.Description, true); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update book reference starred status"})
+				return
+			}
+		}
+
+	case "link":
+		url := c.PostForm("url")
+		if url == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "url is required for links"})
+			return
+		}
+		link, err := h.svc.AddLinkReference(categoryId, title, url, c.PostForm("description"))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create link reference"})
+			return
+		}
+		if starred {
+			if err := h.svc.UpdateLinkReference(link.Id, link.Title, link.URL, link.Description, true); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update link reference starred status"})
+				return
+			}
+		}
+
+	case "note":
+		content := c.PostForm("content")
+		if content == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "content is required for notes"})
+			return
+		}
+		note, err := h.svc.AddNoteReference(categoryId, title, content)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create note reference"})
+			return
+		}
+		if starred {
+			if err := h.svc.UpdateNoteReference(note.Id, note.Title, note.Text, true); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update note reference starred status"})
+				return
+			}
+		}
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reference type"})
+		return
+	}
+
+	references := h.renderReferences(categoryId)
+	c.HTML(http.StatusOK, "_references_list", references)
 }

@@ -36,6 +36,8 @@ func StartServer(handler *Handler) error {
 	r.GET("/add-category-form", handler.AddCategoryForm)
 	r.POST("/categories", handler.CreateCategory)
 	r.DELETE("/categories/:id", handler.DeleteCategory)
+	r.GET("/add-reference-form", handler.AddReferenceForm)
+	r.POST("/references", handler.CreateReference)
 
 	return r.Run(":8080")
 }

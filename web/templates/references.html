@@ -2,13 +2,24 @@
 <div class="max-w-3xl mx-auto">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-800">{{.CategoryName}}</h1>
+        <button 
+            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            hx-get="/add-reference-form?categoryId={{.CategoryId}}"
+            hx-target="#modal-container"
+            hx-trigger="click"
+            hx-swap="innerHTML">
+            + Add Reference
+        </button>
     </div>
-    <ul class="space-y-3">
-        {{range .References}}
-            {{.}}
-        {{else}}
-        <li class="text-gray-500 text-center py-8">No references found in this category.</li>
+    <div id="references-container" class="mt-6">
+        <ul id="references-list" class="space-y-3">
+            {{range .References}}
+                {{.}}
+            {{end}}
+        </ul>
+        {{if not .References}}
+        <div id="no-references" class="text-gray-500 text-center py-8">No references found in this category.</div>
         {{end}}
-    </ul>
+    </div>
 </div>
 {{end}}

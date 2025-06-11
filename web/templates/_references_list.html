@@ -1,0 +1,8 @@
+{{define "_references_list"}}
+{{range .}}
+    {{.}}
+{{end}}
+{{if not .}}
+<div id="no-references" class="text-gray-500 text-center py-8">No references found in this category.</div>
+{{end}}
+{{end}} 

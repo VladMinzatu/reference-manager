@@ -1,0 +1,182 @@
+{{define "add-reference-form"}}
+<div id="add-reference-form" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-lg min-w-[500px] relative shadow-lg">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Add New Reference</h3>
+        
+        <!-- Reference Type Tabs -->
+        <div class="flex gap-2 mb-4 border-b">
+            <button 
+                class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 transition"
+                onclick="switchTab('book')"
+                id="book-tab">
+                Book
+            </button>
+            <button 
+                class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 transition"
+                onclick="switchTab('link')"
+                id="link-tab">
+                Link
+            </button>
+            <button 
+                class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 transition"
+                onclick="switchTab('note')"
+                id="note-tab">
+                Note
+            </button>
+        </div>
+
+        <!-- Book Form -->
+        <form id="book-form" 
+              hx-post="/references" 
+              hx-target="#references-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="
+                if (event.detail.successful) {
+                    document.getElementById('add-reference-form').remove();
+                }
+              "
+              class="space-y-4">
+            <input type="hidden" name="type" value="book">
+            <input type="hidden" name="categoryId" value="{{.CategoryId}}">
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" name="title" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ISBN</label>
+                <input type="text" name="isbn"
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea name="description" rows="3"
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"></textarea>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" name="starred" id="book-starred" class="rounded text-blue-600">
+                <label for="book-starred" class="text-sm text-gray-700">Star this reference</label>
+            </div>
+
+            <div class="flex gap-2 justify-end">
+                <button type="submit"
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Add Book</button>
+                <button type="button"
+                    onclick="document.getElementById('add-reference-form').remove()"
+                    class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">Cancel</button>
+            </div>
+        </form>
+
+        <!-- Link Form -->
+        <form id="link-form" 
+              hx-post="/references" 
+              hx-target="#references-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="
+                if (event.detail.successful) {
+                    document.getElementById('add-reference-form').remove();
+                }
+              "
+              class="space-y-4 hidden">
+            <input type="hidden" name="type" value="link">
+            <input type="hidden" name="categoryId" value="{{.CategoryId}}">
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" name="title" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                <input type="url" name="url" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea name="description" rows="3"
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"></textarea>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" name="starred" id="link-starred" class="rounded text-blue-600">
+                <label for="link-starred" class="text-sm text-gray-700">Star this reference</label>
+            </div>
+
+            <div class="flex gap-2 justify-end">
+                <button type="submit"
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Add Link</button>
+                <button type="button"
+                    onclick="document.getElementById('add-reference-form').remove()"
+                    class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">Cancel</button>
+            </div>
+        </form>
+
+        <!-- Note Form -->
+        <form id="note-form" 
+              hx-post="/references" 
+              hx-target="#references-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="
+                if (event.detail.successful) {
+                    document.getElementById('add-reference-form').remove();
+                }
+              "
+              class="space-y-4 hidden">
+            <input type="hidden" name="type" value="note">
+            <input type="hidden" name="categoryId" value="{{.CategoryId}}">
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" name="title" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                <textarea name="content" rows="5" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"></textarea>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" name="starred" id="note-starred" class="rounded text-blue-600">
+                <label for="note-starred" class="text-sm text-gray-700">Star this reference</label>
+            </div>
+
+            <div class="flex gap-2 justify-end">
+                <button type="submit"
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Add Note</button>
+                <button type="button"
+                    onclick="document.getElementById('add-reference-form').remove()"
+                    class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function switchTab(type) {
+    // Hide all forms
+    document.getElementById('book-form').classList.add('hidden');
+    document.getElementById('link-form').classList.add('hidden');
+    document.getElementById('note-form').classList.add('hidden');
+    
+    // Remove active state from all tabs
+    document.getElementById('book-tab').classList.remove('border-blue-600', 'text-blue-600');
+    document.getElementById('link-tab').classList.remove('border-blue-600', 'text-blue-600');
+    document.getElementById('note-tab').classList.remove('border-blue-600', 'text-blue-600');
+    
+    // Show selected form and activate tab
+    document.getElementById(type + '-form').classList.remove('hidden');
+    document.getElementById(type + '-tab').classList.add('border-blue-600', 'text-blue-600');
+}
+
+// Show book form by default
+switchTab('book');
+</script>
+{{end}} 
