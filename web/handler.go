@@ -306,3 +306,25 @@ func (h *Handler) CreateReference(c *gin.Context) {
 	references := h.renderReferences(categoryId)
 	c.HTML(http.StatusOK, "_references_list", references)
 }
+
+func (h *Handler) DeleteReference(c *gin.Context) {
+	idStr := c.Param("id")
+	if idStr == "" {
+		c.String(http.StatusBadRequest, "Invalid path")
+		return
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid reference id")
+		return
+	}
+
+	if err := h.svc.DeleteReference(id); err != nil {
+		slog.Error("failed to delete reference", "error", err, "id", id)
+		c.String(http.StatusInternalServerError, "Failed to delete reference")
+		return
+	}
+
+	// Return empty response since the reference will be removed from the DOM
+	c.Status(http.StatusOK)
+}

@@ -5,6 +5,7 @@
     <div class="font-medium text-gray-900">{{.Title}}</div>
     <a href="{{.Url}}" target="_blank" class="text-blue-600 hover:underline text-sm">{{.Url}}</a>
     <div class="text-sm text-gray-500">{{.Description}}</div>
+    {{template "_ref_delete_button" .}}
   </div>
 </li>
 {{end}}

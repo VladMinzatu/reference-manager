@@ -4,6 +4,7 @@
     {{template "_starred" .}}
     <div class="font-medium text-gray-900">{{.Title}}</div>
     <div class="text-sm text-gray-500">{{.Content}}</div>
+    {{template "_ref_delete_button" .}}
   </div>
 </li>
 {{end}}
