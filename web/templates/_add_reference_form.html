@@ -1,0 +1,55 @@
+{{define "add-reference-form"}}
+<div id="add-reference-form" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-lg min-w-[500px] relative shadow-lg">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Add New Reference</h3>
+        
+        <!-- Reference Type Tabs -->
+        <div class="flex gap-2 mb-4 border-b">
+            <button 
+                class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 transition"
+                onclick="switchTab('book')"
+                id="book-tab">
+                Book
+            </button>
+            <button 
+                class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 transition"
+                onclick="switchTab('link')"
+                id="link-tab">
+                Link
+            </button>
+            <button 
+                class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 transition"
+                onclick="switchTab('note')"
+                id="note-tab">
+                Note
+            </button>
+        </div>
+
+        <!-- Form Content -->
+        {{template "book-form" .}}
+        {{template "link-form" .}}
+        {{template "note-form" .}}
+    </div>
+</div>
+
+<script>
+function switchTab(type) {
+    // Hide all forms
+    document.getElementById('book-form').classList.add('hidden');
+    document.getElementById('link-form').classList.add('hidden');
+    document.getElementById('note-form').classList.add('hidden');
+    
+    // Remove active state from all tabs
+    document.getElementById('book-tab').classList.remove('border-blue-600', 'text-blue-600');
+    document.getElementById('link-tab').classList.remove('border-blue-600', 'text-blue-600');
+    document.getElementById('note-tab').classList.remove('border-blue-600', 'text-blue-600');
+    
+    // Show selected form and activate tab
+    document.getElementById(type + '-form').classList.remove('hidden');
+    document.getElementById(type + '-tab').classList.add('border-blue-600', 'text-blue-600');
+}
+
+// Show book form by default
+switchTab('book');
+</script>
+{{end}} 
