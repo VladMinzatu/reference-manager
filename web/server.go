@@ -39,6 +39,12 @@ func StartServer(handler *Handler) error {
 	r.GET("/add-reference-form", handler.AddReferenceForm)
 	r.POST("/references", handler.CreateReference)
 	r.DELETE("/references/:id", handler.DeleteReference)
+	r.GET("/books/:id/edit", handler.EditBookForm)
+	r.PUT("/books/:id", handler.UpdateBook)
+	r.GET("/links/:id/edit", handler.EditLinkForm)
+	r.PUT("/links/:id", handler.UpdateLink)
+	r.GET("/notes/:id/edit", handler.EditNoteForm)
+	r.PUT("/notes/:id", handler.UpdateNote)
 
 	return r.Run(":8080")
 }

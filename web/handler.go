@@ -328,3 +328,130 @@ func (h *Handler) DeleteReference(c *gin.Context) {
 	// Return empty response since the reference will be removed from the DOM
 	c.Status(http.StatusOK)
 }
+
+// Helper for rendering edit reference forms
+func (h *Handler) EditBookForm(c *gin.Context) {
+	renderEditReferenceForm(c, "_edit_book_form", map[string]interface{}{
+		"Title":       c.Query("title"),
+		"ISBN":        c.Query("isbn"),
+		"Description": c.Query("description"),
+		"Starred":     c.Query("starred") == "true" || c.Query("starred") == "1",
+	})
+}
+
+func (h *Handler) EditLinkForm(c *gin.Context) {
+	renderEditReferenceForm(c, "_edit_link_form", map[string]interface{}{
+		"Title":       c.Query("title"),
+		"URL":         c.Query("url"),
+		"Description": c.Query("description"),
+		"Starred":     c.Query("starred") == "true" || c.Query("starred") == "1",
+	})
+}
+
+func (h *Handler) EditNoteForm(c *gin.Context) {
+	renderEditReferenceForm(c, "_edit_note_form", map[string]interface{}{
+		"Title":   c.Query("title"),
+		"Text":    c.Query("content"),
+		"Starred": c.Query("starred") == "true" || c.Query("starred") == "1",
+	})
+}
+
+func renderEditReferenceForm(c *gin.Context, tmpl string, fields map[string]interface{}) {
+	idStr := c.Param("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+	fields["Id"] = id
+	c.HTML(http.StatusOK, tmpl, fields)
+}
+
+func (h *Handler) UpdateBook(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid id")
+		return
+	}
+	title := c.PostForm("title")
+	isbn := c.PostForm("isbn")
+	description := c.PostForm("description")
+	starred := c.PostForm("starred") == "on"
+	data := struct {
+		Id          int64
+		Title       string
+		ISBN        string
+		Description string
+		Starred     bool
+	}{
+		Id:          id,
+		Title:       title,
+		ISBN:        isbn,
+		Description: description,
+		Starred:     starred,
+	}
+	err = h.svc.UpdateBookReference(id, title, isbn, description, starred)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update reference")
+		return
+	}
+	c.HTML(http.StatusOK, "_book", data)
+}
+
+func (h *Handler) UpdateLink(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid id")
+		return
+	}
+	title := c.PostForm("title")
+	url := c.PostForm("url")
+	description := c.PostForm("description")
+	starred := c.PostForm("starred") == "on"
+	data := struct {
+		Id          int64
+		Title       string
+		URL         string
+		Description string
+		Starred     bool
+	}{
+		Id:          id,
+		Title:       title,
+		URL:         url,
+		Description: description,
+		Starred:     starred,
+	}
+	err = h.svc.UpdateLinkReference(id, title, url, description, starred)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update reference")
+		return
+	}
+	c.HTML(http.StatusOK, "_link", data)
+}
+
+func (h *Handler) UpdateNote(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid id")
+		return
+	}
+	title := c.PostForm("title")
+	content := c.PostForm("content")
+	starred := c.PostForm("starred") == "on"
+	data := struct {
+		Id      int64
+		Title   string
+		Text    string
+		Starred bool
+	}{
+		Id:      id,
+		Title:   title,
+		Text:    content,
+		Starred: starred,
+	}
+	err = h.svc.UpdateNoteReference(id, title, content, starred)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update reference")
+		return
+	}
+	c.HTML(http.StatusOK, "_note", data)
+}

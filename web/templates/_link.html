@@ -1,11 +1,18 @@
 {{define "_link"}}
-<li class="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3 border border-gray-100">
+<li id="reference-{{.Id}}" class="flex items-center justify-between bg-white rounded shadow-sm px-4 py-3 border border-gray-100">
   <div>
     {{template "_starred" .}}
     <div class="font-medium text-gray-900">{{.Title}}</div>
     <a href="{{.URL}}" target="_blank" class="text-blue-600 hover:underline text-sm">{{.URL}}</a>
     <div class="text-sm text-gray-500">{{.Description}}</div>
     {{template "_ref_delete_button" .}}
+    <button
+      class="text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded transition"
+      hx-get="/links/{{.Id}}/edit?title={{urlquery .Title}}&url={{urlquery .URL}}&description={{urlquery .Description}}&starred={{.Starred}}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML">
+      Edit
+    </button>
   </div>
 </li>
 {{end}}
