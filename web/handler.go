@@ -455,3 +455,42 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 	}
 	c.HTML(http.StatusOK, "_note", data)
 }
+
+func (h *Handler) EditCategoryForm(c *gin.Context) {
+	idStr := c.Param("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+	name := c.Query("name")
+	data := struct {
+		Id   int64
+		Name string
+	}{
+		Id:   id,
+		Name: name,
+	}
+	c.HTML(http.StatusOK, "_edit_category_form", data)
+}
+
+func (h *Handler) UpdateCategory(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid id")
+		return
+	}
+	name := c.PostForm("name")
+	if name == "" {
+		c.String(http.StatusBadRequest, "Category name required")
+		return
+	}
+	err = h.svc.UpdateCategory(id, name)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update category")
+		return
+	}
+	// Return updated sidebar
+	categories, _ := h.svc.GetAllCategories()
+	c.HTML(http.StatusOK, "sidebar", SidebarData{
+		Categories:       categories,
+		ActiveCategoryId: id,
+	})
+}

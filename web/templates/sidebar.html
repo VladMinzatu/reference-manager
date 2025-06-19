@@ -16,15 +16,24 @@
                 hx-swap="innerHTML"
                 hx-vals='{"categoryName": "{{js .Name}}"}'
             >{{.Name}}</a>
-            <button 
-                class="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded transition"
-                hx-delete="/categories/{{.Id}}"
-                hx-target="#body-fragment"
-                hx-swap="outerHTML"
-                hx-confirm="Are you sure you want to delete this category?"
-                hx-trigger="click">
-                Delete
-            </button>
+            <div class="flex gap-1">
+                <button 
+                    class="text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded transition"
+                    hx-get="/categories/{{.Id}}/edit?name={{urlquery .Name}}"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML">
+                    Edit
+                </button>
+                <button 
+                    class="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded transition"
+                    hx-delete="/categories/{{.Id}}"
+                    hx-target="#body-fragment"
+                    hx-swap="outerHTML"
+                    hx-confirm="Are you sure you want to delete this category?"
+                    hx-trigger="click">
+                    Delete
+                </button>
+            </div>
         </div>
     {{end}}
     </div>
