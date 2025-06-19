@@ -11,13 +11,19 @@
         .category-link.active { font-weight: bold; }
     </style>
     <script>
-        document.addEventListener('htmx:afterOnLoad', function(evt) {
-            document.querySelectorAll('.category-link').forEach(function(link) {
-                link.classList.remove('active');
+        document.addEventListener('DOMContentLoaded', function() {
+          document.querySelectorAll('.category-link').forEach(function(link) {
+            link.addEventListener('click', function(evt) {
+              // Remove active classes from all links
+              document.querySelectorAll('.category-link').forEach(function(l) {
+                l.classList.remove('bg-blue-100', 'text-blue-700', 'font-semibold', 'active');
+                l.classList.add('text-gray-700');
+              });
+              // Add active classes to the clicked link
+              this.classList.add('bg-blue-100', 'text-blue-700', 'font-semibold', 'active');
+              this.classList.remove('text-gray-700');
             });
-            if (evt.detail.elt.classList.contains('category-link')) {
-                evt.detail.elt.classList.add('active');
-            }
+          });
         });
     </script>
 </head>
