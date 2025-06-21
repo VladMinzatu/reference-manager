@@ -1,9 +1,9 @@
 {{define "sidebar"}}
 <div id="sidebar" class="w-88 bg-white border-r border-gray-200 p-6 flex flex-col gap-4 min-h-screen">
     <h2 class="text-lg font-semibold text-gray-800 mb-2">Categories</h2>
-    <div class="flex flex-col gap-2">
+    <div id="category-list" class="flex flex-col gap-2">
     {{range .Categories}}
-        <div class="flex items-center gap-2 justify-between">
+        <div class="category-row flex items-center gap-2 justify-between" data-id="{{.Id}}">
             <a 
                 href="#" 
                 class="category-link{{if eq .Id $.ActiveCategoryId}} active{{end}} px-3 py-2 rounded transition 

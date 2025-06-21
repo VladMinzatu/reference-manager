@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -492,5 +493,27 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	c.HTML(http.StatusOK, "sidebar", SidebarData{
 		Categories:       categories,
 		ActiveCategoryId: id,
+	})
+}
+
+func (h *Handler) ReorderCategories(c *gin.Context) {
+	positionsStr := c.PostForm("positions")
+	if positionsStr == "" {
+		c.String(http.StatusBadRequest, "Missing positions")
+		return
+	}
+	var positions map[int64]int
+	if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
+		c.String(http.StatusBadRequest, "Invalid positions format")
+		return
+	}
+	if err := h.svc.ReorderCategories(positions); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to reorder categories")
+		return
+	}
+	categories, _ := h.svc.GetAllCategories()
+	c.HTML(http.StatusOK, "sidebar", SidebarData{
+		Categories:       categories,
+		ActiveCategoryId: 0,
 	})
 }
