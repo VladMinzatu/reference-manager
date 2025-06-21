@@ -544,3 +544,28 @@ func (h *Handler) ReorderCategories(c *gin.Context) {
 		ActiveCategoryId: activeCategoryId,
 	})
 }
+
+func (h *Handler) ReorderReferences(c *gin.Context) {
+	categoryIdStr := c.PostForm("categoryId")
+	positionsStr := c.PostForm("positions")
+	if categoryIdStr == "" || positionsStr == "" {
+		c.String(http.StatusBadRequest, "Missing categoryId or positions")
+		return
+	}
+	categoryId, err := strconv.ParseInt(categoryIdStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid categoryId")
+		return
+	}
+	var positions map[int64]int
+	if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
+		c.String(http.StatusBadRequest, "Invalid positions format")
+		return
+	}
+	if err := h.svc.ReorderReferences(categoryId, positions); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to reorder references")
+		return
+	}
+	references := h.renderReferences(categoryId)
+	c.HTML(http.StatusOK, "_references_list", references)
+}

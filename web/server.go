@@ -48,6 +48,7 @@ func StartServer(handler *Handler) error {
 	r.GET("/categories/:id/edit", handler.EditCategoryForm)
 	r.POST("/categories/:id", handler.UpdateCategory)
 	r.PUT("/categories/reorder", handler.ReorderCategories)
+	r.PUT("/references/reorder", handler.ReorderReferences)
 
 	return r.Run(":8080")
 }

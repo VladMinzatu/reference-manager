@@ -14,66 +14,130 @@
     <script>
         function initCategoryReorder() {
           var el = document.getElementById('category-list');
-          console.log('initCategoryReorder called, element:', el);
           if (el && window.Sortable) {
-            if (el._sortableInstance) {
-              el._sortableInstance.destroy();
-            }
-            el._sortableInstance = new Sortable(el, {
-              animation: 150,
-              handle: '.category-link',
-              onEnd: function (evt) {
-                var positions = {};
-                el.querySelectorAll('.category-row').forEach(function(row, idx) {
-                  positions[row.getAttribute('data-id')] = idx;
-                });
-                
-                // Find the currently active category
-                var activeLink = el.querySelector('.category-link.active');
-                var activeCategoryId = activeLink ? activeLink.getAttribute('data-category-id') : null;
-                
-                var values = { positions: JSON.stringify(positions) };
-                if (activeCategoryId) {
-                  values.activeCategoryId = activeCategoryId;
-                }
-                
-                htmx.ajax('PUT', '/categories/reorder', {
-                  values: values,
-                  target: '#sidebar',
-                  swap: 'outerHTML',
-                  onError: function() {
-                    htmx.ajax('GET', '/sidebar', { target: '#sidebar', swap: 'outerHTML' });
-                  }
-                });
+            try {
+              if (el._sortableInstance) {
+                el._sortableInstance.destroy();
+                el._sortableInstance = null;
               }
-            });
-            console.log('SortableJS initialized on category-list');
+              el._sortableInstance = new Sortable(el, {
+                animation: 150,
+                handle: '.category-link',
+                onEnd: function (evt) {
+                  var positions = {};
+                  el.querySelectorAll('.category-row').forEach(function(row, idx) {
+                    positions[row.getAttribute('data-id')] = idx;
+                  });
+                  
+                  // Find the currently active category
+                  var activeLink = el.querySelector('.category-link.active');
+                  var activeCategoryId = activeLink ? activeLink.getAttribute('data-category-id') : null;
+                  
+                  var values = { positions: JSON.stringify(positions) };
+                  if (activeCategoryId) {
+                    values.activeCategoryId = activeCategoryId;
+                  }
+                  
+                  htmx.ajax('PUT', '/categories/reorder', {
+                    values: values,
+                    target: '#sidebar',
+                    swap: 'outerHTML',
+                    onError: function() {
+                      htmx.ajax('GET', '/sidebar', { target: '#sidebar', swap: 'outerHTML' });
+                    }
+                  });
+                }
+              });
+            } catch (e) {
+              console.error('Error initializing category SortableJS:', e);
+            }
           } else {
             console.log('SortableJS not available or element not found');
+          }
+        }
+
+        function initReferenceReorder() {
+          var el = document.getElementById('references-list');
+          if (el && window.Sortable) {
+            try {
+              if (el._sortableInstance) {
+                el._sortableInstance.destroy();
+                el._sortableInstance = null;
+              }
+              el._sortableInstance = new Sortable(el, {
+                animation: 150,
+                handle: '.reference-row',
+                onEnd: function (evt) {
+                  var positions = {};
+                  el.querySelectorAll('.reference-row').forEach(function(row, idx) {
+                    positions[row.getAttribute('data-id')] = idx;
+                  });
+                  
+                  // Get the current category ID from the page
+                  var categoryId = document.querySelector('[name="categoryId"]')?.value || 
+                                  document.querySelector('.category-link.active')?.getAttribute('data-category-id');
+                  
+                  var values = { categoryId: categoryId, positions: JSON.stringify(positions) };
+                  
+                  htmx.ajax('PUT', '/references/reorder', {
+                    values: values,
+                    target: '#references-list',
+                    swap: 'innerHTML',
+                    onError: function() {
+                      htmx.ajax('GET', window.location.pathname, { target: '#references-list', swap: 'innerHTML' });
+                    }
+                  });
+                }
+              });
+            } catch (e) {
+              console.error('Error initializing reference SortableJS:', e);
+            }
+          } else {
+            console.log('SortableJS not available or references-list element not found');
           }
         }
         
         // Initialize on initial page load
         document.addEventListener('DOMContentLoaded', function() {
-          // Clean up before sidebar swaps
+          // Clean up before swaps
           document.body.addEventListener('htmx:beforeSwap', function(evt) {
             if (evt.detail.target && (evt.detail.target.id === 'sidebar' || evt.detail.target.id === 'body-fragment')) {
               var el = document.getElementById('category-list');
               if (el && el._sortableInstance) {
-                el._sortableInstance.destroy();
+                try {
+                  el._sortableInstance.destroy();
+                  el._sortableInstance = null;
+                } catch (e) {
+                  console.error('Error destroying category SortableJS:', e);
+                }
+              }
+            }
+            if (evt.detail.target && evt.detail.target.id === 'references-list') {
+              var el = document.getElementById('references-list');
+              if (el && el._sortableInstance) {
+                try {
+                  el._sortableInstance.destroy();
+                  el._sortableInstance = null;
+                } catch (e) {
+                  console.error('Error destroying reference SortableJS:', e);
+                }
               }
             }
           });
           
-          // Initialize after sidebar swaps
+          // Initialize after swaps
           document.body.addEventListener('htmx:afterSwap', function(evt) {
             if (evt.detail.target && (evt.detail.target.id === 'sidebar' || evt.detail.target.id === 'body-fragment')) {
               initCategoryReorder();
+            }
+            if (evt.detail.target && (evt.detail.target.id === 'references-list' || evt.detail.target.id === 'body-fragment')) {
+              initReferenceReorder();
             }
           });
           
           // Initialize on page load
           initCategoryReorder();
+          initReferenceReorder();
         });
     </script>
 </head>
