@@ -12,8 +12,8 @@
                 data-category-id="{{.Id}}"
                 data-category-name="{{.Name}}"
                 hx-get="/categories/{{.Id}}/references"
-                hx-target="#main"
-                hx-swap="innerHTML"
+                hx-target="#body-fragment"
+                hx-swap="outerHTML"
                 hx-vals='{"categoryName": "{{js .Name}}"}'
             >{{.Name}}</a>
             <div class="flex gap-1">

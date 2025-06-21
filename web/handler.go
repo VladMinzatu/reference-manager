@@ -77,14 +77,31 @@ func (h *Handler) CategoryReferences(c *gin.Context) {
 	}
 	references := h.renderReferences(id)
 
+	// Get all categories for sidebar
+	categories, _ := h.svc.GetAllCategories()
+
+	// Find the category name (from query or from categories list)
 	categoryName := c.Query("categoryName")
-	data := ReferencesData{
-		CategoryId:   id,
-		CategoryName: categoryName,
-		References:   references,
+	if categoryName == "" {
+		for _, cat := range categories {
+			if cat.Id == id {
+				categoryName = cat.Name
+				break
+			}
+		}
 	}
 
-	c.HTML(http.StatusOK, "references", data)
+	c.HTML(http.StatusOK, "body-fragment", gin.H{
+		"sidebar": SidebarData{
+			Categories:       categories,
+			ActiveCategoryId: id,
+		},
+		"references": ReferencesData{
+			CategoryId:   id,
+			CategoryName: categoryName,
+			References:   references,
+		},
+	})
 }
 
 func (h *Handler) AddCategoryForm(c *gin.Context) {
@@ -512,8 +529,18 @@ func (h *Handler) ReorderCategories(c *gin.Context) {
 		return
 	}
 	categories, _ := h.svc.GetAllCategories()
+
+	// Find the currently active category from the request or use the first one
+	activeCategoryIdStr := c.PostForm("activeCategoryId")
+	var activeCategoryId int64
+	if activeCategoryIdStr != "" {
+		if id, err := strconv.ParseInt(activeCategoryIdStr, 10, 64); err == nil {
+			activeCategoryId = id
+		}
+	}
+
 	c.HTML(http.StatusOK, "sidebar", SidebarData{
 		Categories:       categories,
-		ActiveCategoryId: 0,
+		ActiveCategoryId: activeCategoryId,
 	})
 }

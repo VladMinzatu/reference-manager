@@ -27,8 +27,18 @@
                 el.querySelectorAll('.category-row').forEach(function(row, idx) {
                   positions[row.getAttribute('data-id')] = idx;
                 });
+                
+                // Find the currently active category
+                var activeLink = el.querySelector('.category-link.active');
+                var activeCategoryId = activeLink ? activeLink.getAttribute('data-category-id') : null;
+                
+                var values = { positions: JSON.stringify(positions) };
+                if (activeCategoryId) {
+                  values.activeCategoryId = activeCategoryId;
+                }
+                
                 htmx.ajax('PUT', '/categories/reorder', {
-                  values: { positions: JSON.stringify(positions) },
+                  values: values,
                   target: '#sidebar',
                   swap: 'outerHTML',
                   onError: function() {
@@ -47,7 +57,7 @@
         document.addEventListener('DOMContentLoaded', function() {
           // Clean up before sidebar swaps
           document.body.addEventListener('htmx:beforeSwap', function(evt) {
-            if (evt.detail.target && evt.detail.target.id === 'sidebar') {
+            if (evt.detail.target && (evt.detail.target.id === 'sidebar' || evt.detail.target.id === 'body-fragment')) {
               var el = document.getElementById('category-list');
               if (el && el._sortableInstance) {
                 el._sortableInstance.destroy();
@@ -57,7 +67,7 @@
           
           // Initialize after sidebar swaps
           document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target && evt.detail.target.id === 'sidebar') {
+            if (evt.detail.target && (evt.detail.target.id === 'sidebar' || evt.detail.target.id === 'body-fragment')) {
               initCategoryReorder();
             }
           });
