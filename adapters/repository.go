@@ -432,8 +432,6 @@ func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {
 	}
 	defer tx.Rollback()
 
-	valueStrings, valueArgs := r.preparePositionArgs(positions)
-
 	// For Postgres we could use "SELECT id FROM categories FOR UPDATE" to lock the rows
 	// until transaction completion. With SQLite we get db-level locking by default.
 	var categoryIds []int64
@@ -455,28 +453,60 @@ func (r *SQLiteRepository) ReorderCategories(positions map[int64]int) error {
 		return err
 	}
 
-	// Update positions directly in categories table since we've validated the input
-	query := `
+	// Two-phase update to avoid unique constraint violation on position
+	// Phase 1: Set all positions to unique negative values
+	tempPositions := make(map[int64]int)
+	tempValue := -1
+	for id := range positions {
+		tempPositions[id] = tempValue
+		tempValue--
+	}
+	tempValueStrings, tempValueArgs := r.preparePositionArgs(tempPositions)
+
+	phase1Query := `
 		WITH input_values (input_id, new_position) AS (
-			VALUES ` + strings.Join(valueStrings, ",") + `
+			VALUES ` + strings.Join(tempValueStrings, ",") + `
 		)
-		UPDATE categories 
+		UPDATE categories
 		SET position = ui.new_position
 		FROM input_values ui
 		WHERE categories.id = ui.input_id`
 
-	result, err := tx.Exec(query, valueArgs...)
+	result, err := tx.Exec(phase1Query, tempValueArgs...)
 	if err != nil {
-		return fmt.Errorf("error updating category positions: %v", err)
+		return fmt.Errorf("error setting temporary category positions: %v", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error getting rows affected: %v", err)
+		return fmt.Errorf("error getting rows affected (phase 1): %v", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no positions were updated in phase 1")
 	}
 
+	// Phase 2: Set the final intended positions
+	finalValueStrings, finalValueArgs := r.preparePositionArgs(positions)
+	phase2Query := `
+		WITH input_values (input_id, new_position) AS (
+			VALUES ` + strings.Join(finalValueStrings, ",") + `
+		)
+		UPDATE categories
+		SET position = ui.new_position
+		FROM input_values ui
+		WHERE categories.id = ui.input_id`
+
+	result, err = tx.Exec(phase2Query, finalValueArgs...)
+	if err != nil {
+		return fmt.Errorf("error setting final category positions: %v", err)
+	}
+
+	rowsAffected, err = result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error getting rows affected (phase 2): %v", err)
+	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("no positions were updated")
+		return fmt.Errorf("no positions were updated in phase 2")
 	}
 
 	return tx.Commit()
@@ -491,8 +521,6 @@ func (r *SQLiteRepository) ReorderReferences(categoryId int64, positions map[int
 
 	// Get all reference IDs for this category
 	var referenceIds []int64
-	// For Postgres we could use "SELECT id FROM categories FOR UPDATE" to lock the rows
-	// until transaction completion. With SQLite we get transaction-level locking by default.
 	rows, err := tx.Query("SELECT id FROM base_references WHERE category_id = ?", categoryId)
 	if err != nil {
 		return fmt.Errorf("error querying references: %v", err)
@@ -511,20 +539,47 @@ func (r *SQLiteRepository) ReorderReferences(categoryId int64, positions map[int
 		return err
 	}
 
-	valueStrings, valueArgs := r.preparePositionArgs(positions)
+	// To avoid violating the unique constraint on (category_id, position) in SQLite,
+	// we must ensure that no two rows temporarily have the same (category_id, position) during the update.
+	// The classic approach is to use a two-phase update:
+	// 1. Set all positions to negative temporary values (e.g., -1, -2, ...) that do not conflict with any valid position.
+	// 2. Set the final intended positions.
 
-	// Update positions directly in base_references table since we've validated the input
-	query := `
+	// Phase 1: Set all positions to unique negative values
+	tempPositions := make(map[int64]int)
+	tempValue := -1
+	for id := range positions {
+		tempPositions[id] = tempValue
+		tempValue--
+	}
+	tempValueStrings, tempValueArgs := r.preparePositionArgs(tempPositions)
+
+	phase1Query := `
 		WITH input_values (input_id, new_position) AS (
-			VALUES ` + strings.Join(valueStrings, ",") + `
+			VALUES ` + strings.Join(tempValueStrings, ",") + `
 		)
 		UPDATE base_references 
 		SET position = ui.new_position
 		FROM input_values ui
 		WHERE base_references.id = ui.input_id
 		AND base_references.category_id = ?`
+	_, err = tx.Exec(phase1Query, append(tempValueArgs, categoryId)...)
+	if err != nil {
+		return fmt.Errorf("error setting temporary positions: %v", err)
+	}
 
-	result, err := tx.Exec(query, append(valueArgs, categoryId)...)
+	// Phase 2: Set all positions to their intended values
+	finalValueStrings, finalValueArgs := r.preparePositionArgs(positions)
+	phase2Query := `
+		WITH input_values (input_id, new_position) AS (
+			VALUES ` + strings.Join(finalValueStrings, ",") + `
+		)
+		UPDATE base_references 
+		SET position = ui.new_position
+		FROM input_values ui
+		WHERE base_references.id = ui.input_id
+		AND base_references.category_id = ?`
+	result, err := tx.Exec(phase2Query, append(finalValueArgs, categoryId)...)
 	if err != nil {
 		return fmt.Errorf("error updating reference positions: %v", err)
 	}
