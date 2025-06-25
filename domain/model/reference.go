@@ -11,14 +11,14 @@ type Renderer interface {
 }
 
 type BaseReference struct {
-	Id      int64
-	Title   string
+	Id      Id
+	Title   Title
 	Starred bool
 }
 
 type BookReference struct {
 	BaseReference
-	ISBN        string
+	ISBN        ISBN
 	Description string
 }
 
@@ -28,7 +28,7 @@ func (b BookReference) Render(renderer Renderer) {
 
 type LinkReference struct {
 	BaseReference
-	URL         string
+	URL         URL
 	Description string
 }
 
