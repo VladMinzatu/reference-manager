@@ -2,10 +2,9 @@ package repository
 
 import "github.com/VladMinzatu/reference-manager/domain/model"
 
+/*
+This repository is used for operations that can be performedat the level of individual references in a concurrency safe way without the need to lock the entire category.
+*/
 type ReferencesRepository interface {
-	GetAllReferences(categoryId model.Id) ([]model.Reference, error)
-	AddReference(categoryId model.Id, reference model.Reference) (model.Reference, error)
 	UpdateReference(id model.Id, reference model.Reference) error
-	DeleteReference(id model.Id) error
-	ReorderReferences(positions map[model.Id]int) error
 }
