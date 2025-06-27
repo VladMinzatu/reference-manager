@@ -1,8 +1,9 @@
 package model
 
 type Category struct {
-	Id   Id
-	Name Title
+	Id         Id
+	Name       Title
+	References []Reference
 }
 
 func NewCategory(id int64, name string) (Category, error) {
