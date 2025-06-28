@@ -1,7 +1,7 @@
 package model
 
 type Reference interface {
-	Id() Id
+	GetId() Id
 	Render(renderer Renderer) // this is a classic Visitor pattern
 }
 
@@ -15,6 +15,10 @@ type BaseReference struct {
 	Id      Id
 	Title   Title
 	Starred bool
+}
+
+func (b BaseReference) GetId() Id {
+	return b.Id
 }
 
 type BookReference struct {

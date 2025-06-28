@@ -53,12 +53,12 @@ func (s *CategoryService) ReorderReferences(categoryId model.Id, positions map[m
 	newOrder := make([]model.Reference, len(category.References))
 	seen := make(map[int]bool)
 	for _, ref := range category.References {
-		pos, ok := positions[ref.Id()]
+		pos, ok := positions[ref.GetId()]
 		if !ok {
-			return nil, fmt.Errorf("reference %v missing in positions", ref.Id())
+			return nil, fmt.Errorf("reference %v missing in positions", ref.GetId())
 		}
 		if pos < 0 || pos >= len(category.References) {
-			return nil, fmt.Errorf("invalid position %d for reference %v", pos, ref.Id())
+			return nil, fmt.Errorf("invalid position %d for reference %v", pos, ref.GetId())
 		}
 		if seen[pos] {
 			return nil, fmt.Errorf("duplicate position %d", pos)
@@ -101,7 +101,7 @@ func (s *CategoryService) RemoveReference(categoryId model.Id, referenceId model
 	}
 
 	for i, ref := range category.References {
-		if ref.Id() == referenceId {
+		if ref.GetId() == referenceId {
 			category.References = append(category.References[:i], category.References[i+1:]...)
 			break
 		}
