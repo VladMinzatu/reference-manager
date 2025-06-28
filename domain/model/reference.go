@@ -1,6 +1,7 @@
 package model
 
 type Reference interface {
+	Id() Id
 	Render(renderer Renderer) // this is a classic Visitor pattern
 }
 

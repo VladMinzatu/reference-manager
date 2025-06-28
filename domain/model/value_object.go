@@ -15,6 +15,15 @@ func NewId(val int64) (Id, error) {
 	return Id(val), nil
 }
 
+type Version int64
+
+func NewVersion(val int64) (Version, error) {
+	if val < 0 {
+		return 0, errors.New("version must be non-negative")
+	}
+	return Version(val), nil
+}
+
 type Title string
 
 const MaxTitleLength = 255
