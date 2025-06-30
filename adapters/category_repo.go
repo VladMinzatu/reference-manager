@@ -119,43 +119,20 @@ func buildBookReference(refId sql.NullInt64, refTitle sql.NullString, refStarred
 	bookId, _ := model.NewId(refId.Int64)
 	bookTitle, _ := model.NewTitle(refTitle.String)
 	bookISBN, _ := model.NewISBN(isbn)
-	return model.BookReference{
-		BaseReference: model.BaseReference{
-			Id:      bookId,
-			Title:   bookTitle,
-			Starred: refStarred.Bool,
-		},
-		ISBN:        bookISBN,
-		Description: bookDescription,
-	}
+	return model.NewBookReference(bookId, bookTitle, bookISBN, bookDescription, refStarred.Bool)
 }
 
 func buildLinkReference(refId sql.NullInt64, refTitle sql.NullString, refStarred sql.NullBool, url, linkDescription string) model.Reference {
 	linkId, _ := model.NewId(refId.Int64)
 	linkTitle, _ := model.NewTitle(refTitle.String)
 	linkURL, _ := model.NewURL(url)
-	return model.LinkReference{
-		BaseReference: model.BaseReference{
-			Id:      linkId,
-			Title:   linkTitle,
-			Starred: refStarred.Bool,
-		},
-		URL:         linkURL,
-		Description: linkDescription,
-	}
+	return model.NewLinkReference(linkId, linkTitle, linkURL, linkDescription, refStarred.Bool)
 }
 
 func buildNoteReference(refId sql.NullInt64, refTitle sql.NullString, refStarred sql.NullBool, text string) model.Reference {
 	noteId, _ := model.NewId(refId.Int64)
 	noteTitle, _ := model.NewTitle(refTitle.String)
-	return model.NoteReference{
-		BaseReference: model.BaseReference{
-			Id:      noteId,
-			Title:   noteTitle,
-			Starred: refStarred.Bool,
-		},
-		Text: text,
-	}
+	return model.NewNoteReference(noteId, noteTitle, text, refStarred.Bool)
 }
 
 func (r *SQLiteCategoryRepository) UpdateTitle(id model.Id, title model.Title, version model.Version) error {
@@ -241,19 +218,6 @@ func (r *SQLiteCategoryRepository) AddReference(id model.Id, reference model.Ref
 	}
 	defer tx.Rollback()
 
-	// Extract title from reference
-	var title string
-	switch ref := reference.(type) {
-	case model.BookReference:
-		title = string(ref.Title)
-	case model.LinkReference:
-		title = string(ref.Title)
-	case model.NoteReference:
-		title = string(ref.Title)
-	default:
-		return fmt.Errorf("unsupported reference type")
-	}
-
 	query := `
 		INSERT INTO base_references (category_id, title, position, is_starred)
 		SELECT ?, ?, COALESCE(MAX(position) + 1, 0), 0
@@ -263,7 +227,7 @@ func (r *SQLiteCategoryRepository) AddReference(id model.Id, reference model.Ref
 			SELECT 1 FROM categories WHERE id = ? AND version = ?
 		)`
 
-	result, err := tx.Exec(query, id, title, id, id, version)
+	result, err := tx.Exec(query, id, string(reference.Title()), id, id, version)
 	if err != nil {
 		return fmt.Errorf("error inserting base reference: %v", err)
 	}
@@ -273,35 +237,10 @@ func (r *SQLiteCategoryRepository) AddReference(id model.Id, reference model.Ref
 		return fmt.Errorf("category with id %d not found or version was out of date", id)
 	}
 
-	// Add the specific reference type
-	switch ref := reference.(type) {
-	case model.BookReference:
-		_, err = tx.Exec(`
-			INSERT INTO book_references (reference_id, isbn, description) 
-			SELECT ?, ?, ?
-			WHERE EXISTS (
-				SELECT 1 FROM categories WHERE id = ? AND version = ?
-			)`, refId, ref.ISBN, ref.Description, id, version)
-	case model.LinkReference:
-		_, err = tx.Exec(`
-			INSERT INTO link_references (reference_id, url, description) 
-			SELECT ?, ?, ?
-			WHERE EXISTS (
-				SELECT 1 FROM categories WHERE id = ? AND version = ?
-			)`, refId, ref.URL, ref.Description, id, version)
-	case model.NoteReference:
-		_, err = tx.Exec(`
-			INSERT INTO note_references (reference_id, text) 
-			SELECT ?, ?
-			WHERE EXISTS (
-				SELECT 1 FROM categories WHERE id = ? AND version = ?
-			)`, refId, ref.Text, id, version)
-	default:
-		return fmt.Errorf("unsupported reference type")
-	}
-
+	persistor := NewSQLiteReferencePersistor(id, version, tx, refId)
+	err = reference.Persist(persistor)
 	if err != nil {
-		return fmt.Errorf("error inserting specific reference: %v", err)
+		return err
 	}
 
 	err = r.updateCategoryVersion(tx, id, version)
