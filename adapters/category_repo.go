@@ -86,7 +86,13 @@ func (r *SQLiteCategoryRepository) GetCategoryById(id model.Id) (*model.Category
 			}
 		}
 
-		// Add reference if it exists (refId will be NULL if category has no references)
+		// Next, add reference if it exists (refId will be NULL if category has no references)
+
+		// I need to add a note here for the curious reader: yes, this is a switch statement, but because it's coming from the persistence, it's not a switch on type
+		// and cannot be removed via double dispatch. Since it's the only place where it happens, I think adding an abstract Factory here is overkill, as it would require
+		// the same kind of update when adding a new reference type.
+		// On the plus side, the impact of forgetting to add support for a new type here is not big - the new references wold just not show up.
+		// Almost certainly something that will not cause more than 5 min of head scratching during development at worst.
 		if refId.Valid {
 			var ref model.Reference
 			switch refType.String {
