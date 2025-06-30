@@ -88,44 +88,17 @@ func (r *SQLiteCategoryRepository) GetCategoryById(id model.Id) (*model.Category
 
 		// Add reference if it exists (refId will be NULL if category has no references)
 		if refId.Valid {
+			var ref model.Reference
 			switch refType.String {
 			case BOOK_TYPE:
-				bookId, _ := model.NewId(refId.Int64)
-				bookTitle, _ := model.NewTitle(refTitle.String)
-				bookISBN, _ := model.NewISBN(isbn)
-				references = append(references, model.BookReference{
-					BaseReference: model.BaseReference{
-						Id:      bookId,
-						Title:   bookTitle,
-						Starred: refStarred.Bool,
-					},
-					ISBN:        bookISBN,
-					Description: bookDescription,
-				})
+				ref = buildBookReference(refId, refTitle, refStarred, isbn, bookDescription)
 			case LINK_TYPE:
-				linkId, _ := model.NewId(refId.Int64)
-				linkTitle, _ := model.NewTitle(refTitle.String)
-				linkURL, _ := model.NewURL(url)
-				references = append(references, model.LinkReference{
-					BaseReference: model.BaseReference{
-						Id:      linkId,
-						Title:   linkTitle,
-						Starred: refStarred.Bool,
-					},
-					URL:         linkURL,
-					Description: linkDescription,
-				})
+				ref = buildLinkReference(refId, refTitle, refStarred, url, linkDescription)
 			case NOTE_TYPE:
-				noteId, _ := model.NewId(refId.Int64)
-				noteTitle, _ := model.NewTitle(refTitle.String)
-				references = append(references, model.NoteReference{
-					BaseReference: model.BaseReference{
-						Id:      noteId,
-						Title:   noteTitle,
-						Starred: refStarred.Bool,
-					},
-					Text: text,
-				})
+				ref = buildNoteReference(refId, refTitle, refStarred, text)
+			}
+			if ref != nil {
+				references = append(references, ref)
 			}
 		}
 	}
@@ -140,6 +113,49 @@ func (r *SQLiteCategoryRepository) GetCategoryById(id model.Id) (*model.Category
 
 	category.References = references
 	return category, nil
+}
+
+func buildBookReference(refId sql.NullInt64, refTitle sql.NullString, refStarred sql.NullBool, isbn, bookDescription string) model.Reference {
+	bookId, _ := model.NewId(refId.Int64)
+	bookTitle, _ := model.NewTitle(refTitle.String)
+	bookISBN, _ := model.NewISBN(isbn)
+	return model.BookReference{
+		BaseReference: model.BaseReference{
+			Id:      bookId,
+			Title:   bookTitle,
+			Starred: refStarred.Bool,
+		},
+		ISBN:        bookISBN,
+		Description: bookDescription,
+	}
+}
+
+func buildLinkReference(refId sql.NullInt64, refTitle sql.NullString, refStarred sql.NullBool, url, linkDescription string) model.Reference {
+	linkId, _ := model.NewId(refId.Int64)
+	linkTitle, _ := model.NewTitle(refTitle.String)
+	linkURL, _ := model.NewURL(url)
+	return model.LinkReference{
+		BaseReference: model.BaseReference{
+			Id:      linkId,
+			Title:   linkTitle,
+			Starred: refStarred.Bool,
+		},
+		URL:         linkURL,
+		Description: linkDescription,
+	}
+}
+
+func buildNoteReference(refId sql.NullInt64, refTitle sql.NullString, refStarred sql.NullBool, text string) model.Reference {
+	noteId, _ := model.NewId(refId.Int64)
+	noteTitle, _ := model.NewTitle(refTitle.String)
+	return model.NoteReference{
+		BaseReference: model.BaseReference{
+			Id:      noteId,
+			Title:   noteTitle,
+			Starred: refStarred.Bool,
+		},
+		Text: text,
+	}
 }
 
 func (r *SQLiteCategoryRepository) UpdateTitle(id model.Id, title model.Title, version model.Version) error {
