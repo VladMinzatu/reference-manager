@@ -3,6 +3,7 @@ package model
 type Reference interface {
 	GetId() Id
 	Title() Title
+	Starred() bool
 	Render(renderer Renderer)                   // this is a classic Visitor pattern
 	Persist(persistor ReferencePersistor) error // so is this
 }
@@ -22,7 +23,7 @@ type ReferencePersistor interface {
 type BaseReference struct {
 	id      Id
 	title   Title
-	Starred bool
+	starred bool
 }
 
 func (b BaseReference) GetId() Id {
@@ -31,6 +32,10 @@ func (b BaseReference) GetId() Id {
 
 func (b BaseReference) Title() Title {
 	return b.title
+}
+
+func (b BaseReference) Starred() bool {
+	return b.starred
 }
 
 type BookReference struct {
@@ -44,7 +49,7 @@ func NewBookReference(id Id, title Title, isbn ISBN, description string, starred
 		BaseReference: BaseReference{
 			id:      id,
 			title:   title,
-			Starred: starred,
+			starred: starred,
 		},
 		ISBN:        isbn,
 		Description: description,
@@ -70,7 +75,7 @@ func NewLinkReference(id Id, title Title, url URL, description string, starred b
 		BaseReference: BaseReference{
 			id:      id,
 			title:   title,
-			Starred: starred,
+			starred: starred,
 		},
 		URL:         url,
 		Description: description,
@@ -95,7 +100,7 @@ func NewNoteReference(id Id, title Title, text string, starred bool) NoteReferen
 		BaseReference: BaseReference{
 			id:      id,
 			title:   title,
-			Starred: starred,
+			starred: starred,
 		},
 		Text: text,
 	}

@@ -243,7 +243,7 @@ func (r *SQLiteCategoryRepository) AddReference(id model.Id, reference model.Ref
 		return fmt.Errorf("category with id %d not found or version was out of date", id)
 	}
 
-	persistor := NewSQLiteReferencePersistor(id, version, tx, refId)
+	persistor := NewSQLiteReferenceAddPersistor(id, version, tx, refId)
 	err = reference.Persist(persistor)
 	if err != nil {
 		return err

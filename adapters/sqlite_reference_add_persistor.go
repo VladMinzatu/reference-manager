@@ -7,16 +7,16 @@ import (
 	"github.com/VladMinzatu/reference-manager/domain/model"
 )
 
-// SQLiteReferencePersistor implements ReferencePersistor for SQLite
-type SQLiteReferencePersistor struct {
+// SQLiteReferenceAddPersistor implements ReferencePersistor for adding references in SQLite
+type SQLiteReferenceAddPersistor struct {
 	categoryId model.Id
 	version    model.Version
 	tx         *sql.Tx
 	baseRefId  int64
 }
 
-func NewSQLiteReferencePersistor(categoryId model.Id, version model.Version, tx *sql.Tx, baseRefId int64) *SQLiteReferencePersistor {
-	return &SQLiteReferencePersistor{
+func NewSQLiteReferenceAddPersistor(categoryId model.Id, version model.Version, tx *sql.Tx, baseRefId int64) *SQLiteReferenceAddPersistor {
+	return &SQLiteReferenceAddPersistor{
 		categoryId: categoryId,
 		version:    version,
 		tx:         tx,
@@ -24,7 +24,7 @@ func NewSQLiteReferencePersistor(categoryId model.Id, version model.Version, tx 
 	}
 }
 
-func (p *SQLiteReferencePersistor) PersistBook(reference model.BookReference) error {
+func (p *SQLiteReferenceAddPersistor) PersistBook(reference model.BookReference) error {
 	_, err := p.tx.Exec(`
 		INSERT INTO book_references (reference_id, isbn, description) 
 		SELECT ?, ?, ?
@@ -37,7 +37,7 @@ func (p *SQLiteReferencePersistor) PersistBook(reference model.BookReference) er
 	return nil
 }
 
-func (p *SQLiteReferencePersistor) PersistLink(reference model.LinkReference) error {
+func (p *SQLiteReferenceAddPersistor) PersistLink(reference model.LinkReference) error {
 	_, err := p.tx.Exec(`
 		INSERT INTO link_references (reference_id, url, description) 
 		SELECT ?, ?, ?
@@ -50,7 +50,7 @@ func (p *SQLiteReferencePersistor) PersistLink(reference model.LinkReference) er
 	return nil
 }
 
-func (p *SQLiteReferencePersistor) PersistNote(reference model.NoteReference) error {
+func (p *SQLiteReferenceAddPersistor) PersistNote(reference model.NoteReference) error {
 	_, err := p.tx.Exec(`
 		INSERT INTO note_references (reference_id, text) 
 		SELECT ?, ?
