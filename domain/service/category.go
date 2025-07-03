@@ -5,6 +5,7 @@ import (
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
 	"github.com/VladMinzatu/reference-manager/domain/repository"
+	"github.com/VladMinzatu/reference-manager/domain/util"
 )
 
 type CategoryService struct {
@@ -50,21 +51,19 @@ func (s *CategoryService) ReorderReferences(categoryId model.Id, positions map[m
 		return nil, fmt.Errorf("number of positions does not match number of references")
 	}
 
-	newOrder := make([]model.Reference, len(category.References))
-	seen := make(map[int]bool)
+	// Validate positions using shared domain utility
+	ids := make([]model.Id, 0, len(category.References))
 	for _, ref := range category.References {
-		pos, ok := positions[ref.GetId()]
-		if !ok {
-			return nil, fmt.Errorf("reference %v missing in positions", ref.GetId())
-		}
-		if pos < 0 || pos >= len(category.References) {
-			return nil, fmt.Errorf("invalid position %d for reference %v", pos, ref.GetId())
-		}
-		if seen[pos] {
-			return nil, fmt.Errorf("duplicate position %d", pos)
-		}
+		ids = append(ids, ref.GetId())
+	}
+	if err := util.ValidatePositions(ids, positions); err != nil {
+		return nil, err
+	}
+
+	newOrder := make([]model.Reference, len(category.References))
+	for _, ref := range category.References {
+		pos := positions[ref.GetId()] // validation done above
 		newOrder[pos] = ref
-		seen[pos] = true
 	}
 
 	if err := s.repo.ReorderReferences(category.Id, positions, category.Version); err != nil {

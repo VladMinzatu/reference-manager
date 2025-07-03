@@ -6,6 +6,7 @@ import (
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
 	"github.com/VladMinzatu/reference-manager/domain/repository"
+	"github.com/VladMinzatu/reference-manager/domain/util"
 )
 
 type SQLiteCategoryListRepository struct {
@@ -45,6 +46,9 @@ func (r *SQLiteCategoryListRepository) AddNewCategory(name model.Title) (model.C
 	}
 	defer tx.Rollback()
 
+	// Note: This logic is safe in SQLite because all writers are serialized.
+	// In e.g. Postgres, we would need row/table-level locking via SELECT...FOR UPDATE prior to this statement
+	// (sequences or separate table with table-level locking are also options, but with sqlite, we can keep it simple)
 	result, err := tx.Exec(`INSERT INTO categories (name, position) SELECT ?, COALESCE(MAX(position) + 1, 0) FROM categories`, string(name))
 	if err != nil {
 		return model.Category{}, fmt.Errorf("error inserting category: %v", err)
@@ -64,23 +68,65 @@ func (r *SQLiteCategoryListRepository) AddNewCategory(name model.Title) (model.C
 }
 
 func (r *SQLiteCategoryListRepository) ReorderCategories(positions map[model.Id]int) error {
+	// Use BEGIN IMMEDIATE to acquire a RESERVED lock up front, preventing concurrent writers.
+	// This ensures that the read-validate-write sequence is atomic and free of race conditions in SQLite.
+	//
+	// This is the one place in the code where I violate my pledge to design with fine granularity of locking in mind (see more details in README)
+	// If we were using e.g. Postgres, we would start off the transaction with a SELECT...FOR UPDATE on our categories and that would be sufficient, even in case of new categories being added concurrently (due to how the reordering logic works).
+	// Of course, even with SQLite, there are other options as well - we could use a separate table to lock or version our categories list for example.
+	// But since this is just an exercise and the choice of SQLite iself here doesn't really match with my self-imposed restriction to ensure fine granularity
+	// I'm satisfied to use the SQLite-esque approach here and know how it should ideally be done in another RDBMS.
+	_, err := r.db.Exec("BEGIN IMMEDIATE")
+	if err != nil {
+		return fmt.Errorf("error starting immediate transaction: %v", err)
+	}
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %v", err)
 	}
 	defer tx.Rollback()
 
-	// Note: Normally we would have a SELECT...FOR UPDATE here, locking all the category rows.
-	// But SQLite does not support SELECT ... FOR UPDATE or row-level locking.
-	// Concurrency is handled by database-level locks: once a transaction writes, it blocks other writers.
-	// This ensures that reordering and other multi-step operations are safe from concurrent modification.
-	// Therefore, we move straight to updating the positions.
-
-	for id, pos := range positions {
-		_, err := tx.Exec(`UPDATE categories SET position = ? WHERE id = ?`, pos, int64(id))
-		if err != nil {
-			return fmt.Errorf("error updating category position: %v", err)
+	rows, err := tx.Query(`SELECT id FROM categories`)
+	if err != nil {
+		return fmt.Errorf("error fetching category ids: %v", err)
+	}
+	var ids []model.Id
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("error scanning id: %v", err)
 		}
+		ids = append(ids, model.Id(id))
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating ids: %v", err)
+	}
+
+	if err := util.ValidatePositions(ids, positions); err != nil {
+		return err
+	}
+
+	query := `UPDATE categories SET position = CASE id`
+	args := []interface{}{}
+	for id, pos := range positions {
+		query += " WHEN ? THEN ?"
+		args = append(args, int64(id), pos)
+	}
+	query += " END WHERE id IN ("
+	first := true
+	for id := range positions {
+		if !first {
+			query += ","
+		}
+		query += "?"
+		args = append(args, int64(id))
+		first = false
+	}
+	query += ")"
+
+	_, err = tx.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("error updating category positions: %v", err)
 	}
 
 	return tx.Commit()
@@ -106,6 +152,8 @@ func (r *SQLiteCategoryListRepository) DeleteCategory(id model.Id) error {
 	}
 
 	// Reorder remaining categories to close any gaps
+	// again, as in the other methods, we're taking a shortcut here afforded by sqlite
+	// we'd need to use e.g. row-level locking for this if we were using e.g. Postgres.
 	_, err = tx.Exec(`
 		WITH ranked AS (
 			SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 as new_pos
