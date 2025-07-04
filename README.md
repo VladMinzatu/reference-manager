@@ -1,5 +1,13 @@
 # reference-manager
 
+> **⚠️ Note**
+>
+> With this side project, I mainly focused on the domain model and internal architecture (i.e. everything under the `/domain` and `/adapters` directories). This has been more carefully considered and is also described in the [Domain and DB modeling notes](#domain-and-db-modeling-notes) section below.
+>
+> As of now, other parts of the project - in particular, the CLI (`cmd`) and `web` interfaces - haven't received the same level of attention and were rather more rushed and probably contain areas of suboptimal design and performance.
+>
+> Also, many production aspects like logging, observability or proper configuration handling haven't been added, as this is not the focus for me for this project.
+
 ## Starred references
 
 The application and db schema now include the possibility to mark certain references as 'starred', along with the possibility to filter out references when retrieving them based on their starred status.
