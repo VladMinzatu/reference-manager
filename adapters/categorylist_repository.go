@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
-	"github.com/VladMinzatu/reference-manager/domain/repository"
 	"github.com/VladMinzatu/reference-manager/domain/util"
 )
 
@@ -13,7 +12,7 @@ type SQLiteCategoryListRepository struct {
 	db *sql.DB
 }
 
-func NewSQLiteCategoryListRepository(db *sql.DB) repository.CategoryListRepository {
+func NewSQLiteCategoryListRepository(db *sql.DB) *SQLiteCategoryListRepository {
 	return &SQLiteCategoryListRepository{db: db}
 }
 

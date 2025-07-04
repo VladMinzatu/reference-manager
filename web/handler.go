@@ -9,23 +9,26 @@ import (
 	"strconv"
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
+	"github.com/VladMinzatu/reference-manager/domain/repository"
 	"github.com/VladMinzatu/reference-manager/domain/service"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	svc      *service.ReferenceService
-	template *template.Template
+	categoryService        *service.CategoryService
+	categoryListRepository repository.CategoryListRepository
+	referenceRepo          repository.ReferencesRepository
+	template               *template.Template
 }
 
 type SidebarData struct {
-	Categories       []model.Category
-	ActiveCategoryId int64
+	Categories       []model.CategoryRef
+	ActiveCategoryId model.Id
 }
 
 type ReferencesData struct {
-	CategoryId   int64
-	CategoryName string
+	CategoryId   model.Id
+	CategoryName model.Title
 	References   []template.HTML
 }
 
@@ -33,15 +36,15 @@ type AddReferenceFormData struct {
 	CategoryId int64
 }
 
-func NewHandler(svc *service.ReferenceService) *Handler {
+func NewHandler(categoryService *service.CategoryService, categoryListRepository repository.CategoryListRepository, referenceRepo repository.ReferencesRepository) *Handler {
 	tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
-	return &Handler{svc: svc, template: tmpl}
+	return &Handler{categoryService: categoryService, categoryListRepository: categoryListRepository, referenceRepo: referenceRepo, template: tmpl}
 }
 
 func (h *Handler) Index(c *gin.Context) {
-	categories, _ := h.svc.GetAllCategories()
-	var activeCategoryId int64
-	var activeCategoryName string
+	categories, _ := h.categoryListRepository.GetAllCategoryRefs()
+	var activeCategoryId model.Id
+	var activeCategoryName model.Title
 	var references []template.HTML
 
 	if len(categories) > 0 {
@@ -75,16 +78,24 @@ func (h *Handler) CategoryReferences(c *gin.Context) {
 		c.String(http.StatusBadRequest, "Invalid category id")
 		return
 	}
-	references := h.renderReferences(id)
+	catId, err := model.NewId(id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category id")
+	}
+	references := h.renderReferences(catId)
 
 	// Get all categories for sidebar
-	categories, _ := h.svc.GetAllCategories()
+	categories, _ := h.categoryListRepository.GetAllCategoryRefs()
 
 	// Find the category name (from query or from categories list)
-	categoryName := c.Query("categoryName")
+	categoryName, err := model.NewTitle(c.Query("categoryName"))
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category name")
+	}
+
 	if categoryName == "" {
 		for _, cat := range categories {
-			if cat.Id == id {
+			if cat.Id == catId {
 				categoryName = cat.Name
 				break
 			}
@@ -94,10 +105,10 @@ func (h *Handler) CategoryReferences(c *gin.Context) {
 	c.HTML(http.StatusOK, "body-fragment", gin.H{
 		"sidebar": SidebarData{
 			Categories:       categories,
-			ActiveCategoryId: id,
+			ActiveCategoryId: catId,
 		},
 		"references": ReferencesData{
-			CategoryId:   id,
+			CategoryId:   catId,
 			CategoryName: categoryName,
 			References:   references,
 		},
@@ -110,17 +121,17 @@ func (h *Handler) AddCategoryForm(c *gin.Context) {
 }
 
 func (h *Handler) CreateCategory(c *gin.Context) {
-	name := c.PostForm("name")
-	if name == "" {
+	name, err := model.NewTitle(c.PostForm("name"))
+	if err != nil {
 		c.String(http.StatusBadRequest, "Category name required")
 		return
 	}
-	category, err := h.svc.AddCategory(name)
+	category, err := h.categoryListRepository.AddNewCategory(name)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to create category")
 		return
 	}
-	categories, _ := h.svc.GetAllCategories()
+	categories, _ := h.categoryListRepository.GetAllCategoryRefs()
 
 	// Alternative here would be to just return c.HTML(.., "sidebar") and use custom client-side JS and HTMX event (triggered on both delete and add-form-sumbmit) to update the the references when the sidebar is updated.
 	c.HTML(http.StatusOK, "body-fragment", gin.H{
@@ -147,26 +158,30 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 		c.String(http.StatusBadRequest, "Invalid category id")
 		return
 	}
+	catId, err := model.NewId(id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category id")
+	}
 
-	if err := h.svc.DeleteCategory(id); err != nil {
+	if err := h.categoryListRepository.DeleteCategory(catId); err != nil {
 		c.String(http.StatusInternalServerError, "Failed to delete category")
 		return
 	}
 
 	// Get updated categories list
 	// TODO: error handling
-	categories, _ := h.svc.GetAllCategories()
-	var activeCategoryId int64
-	var activeCategoryName string
+	categories, _ := h.categoryListRepository.GetAllCategoryRefs()
+	var activeCategoryId model.Id
+	var activeCategoryName model.Title
 	if len(categories) > 0 {
 		activeCategoryId = categories[0].Id
 		activeCategoryName = categories[0].Name
 	}
 
 	// TODO: error handling
-	references, _ := h.svc.GetReferences(activeCategoryId, false)
+	category, _ := h.categoryService.GetCategoryById(activeCategoryId)
 	renderer := NewHTMLReferenceRenderer(h.template)
-	for _, ref := range references {
+	for _, ref := range category.References {
 		ref.Render(renderer)
 	}
 
@@ -184,10 +199,10 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 	})
 }
 
-func (h *Handler) renderReferences(categoryId int64) []template.HTML {
-	refs, _ := h.svc.GetReferences(categoryId, false)
+func (h *Handler) renderReferences(categoryId model.Id) []template.HTML {
+	category, _ := h.categoryService.GetCategoryById(categoryId)
 	renderer := NewHTMLReferenceRenderer(h.template)
-	for _, ref := range refs {
+	for _, ref := range category.References {
 		ref.Render(renderer)
 	}
 	return renderer.collected
@@ -251,6 +266,11 @@ func (h *Handler) CreateReference(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid categoryId"})
 		return
 	}
+	catId, err := model.NewId(categoryId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid categoryId"})
+		return
+	}
 
 	refType := c.PostForm("type")
 	if refType == "" {
@@ -268,52 +288,82 @@ func (h *Handler) CreateReference(c *gin.Context) {
 
 	switch refType {
 	case "book":
-		book, err := h.svc.AddBookReference(categoryId, title, c.PostForm("isbn"), c.PostForm("description"))
+		isbnStr := c.PostForm("isbn")
+		description := c.PostForm("description")
+
+		bookTitle, err := model.NewTitle(title)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid title: " + err.Error()})
+			return
+		}
+		bookISBN, err := model.NewISBN(isbnStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid isbn: " + err.Error()})
+			return
+		}
+
+		bookRef := model.NewBookReference(
+			model.Id(0), // Id will be set by persistence layer
+			bookTitle,
+			bookISBN,
+			description,
+			starred,
+		)
+
+		_, err = h.categoryService.AddReference(model.Id(categoryId), bookRef)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create book reference"})
 			return
 		}
-		if starred {
-			if err := h.svc.UpdateBookReference(book.Id, book.Title, book.ISBN, book.Description, true); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update book reference starred status"})
-				return
-			}
-		}
 
 	case "link":
-		url := c.PostForm("url")
+		url := model.URL(c.PostForm("url"))
 		if url == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "url is required for links"})
 			return
 		}
-		link, err := h.svc.AddLinkReference(categoryId, title, url, c.PostForm("description"))
+		description := c.PostForm("description")
+
+		linkTitle, err := model.NewTitle(title)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid title: " + err.Error()})
+			return
+		}
+
+		linkRef := model.NewLinkReference(
+			model.Id(0), // Id will be set by persistence layer
+			linkTitle,
+			url,
+			description,
+			starred,
+		)
+
+		_, err = h.categoryService.AddReference(model.Id(categoryId), linkRef)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create link reference"})
 			return
 		}
-		if starred {
-			if err := h.svc.UpdateLinkReference(link.Id, link.Title, link.URL, link.Description, true); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update link reference starred status"})
-				return
-			}
-		}
 
 	case "note":
-		content := c.PostForm("content")
-		if content == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "content is required for notes"})
+		noteTitle, err := model.NewTitle(title)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid title: " + err.Error()})
 			return
 		}
-		note, err := h.svc.AddNoteReference(categoryId, title, content)
+
+		content := c.PostForm("content")
+
+		noteRef := model.NewNoteReference(
+			model.Id(0), // Id will be set by persistence layer
+			noteTitle,
+			content,
+			starred,
+		)
+
+		_, err = h.categoryService.AddReference(model.Id(categoryId), noteRef)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create note reference"})
 			return
-		}
-		if starred {
-			if err := h.svc.UpdateNoteReference(note.Id, note.Title, note.Text, true); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update note reference starred status"})
-				return
-			}
 		}
 
 	default:
@@ -321,14 +371,20 @@ func (h *Handler) CreateReference(c *gin.Context) {
 		return
 	}
 
-	references := h.renderReferences(categoryId)
+	references := h.renderReferences(catId)
 	c.HTML(http.StatusOK, "_references_list", references)
 }
 
 func (h *Handler) DeleteReference(c *gin.Context) {
+	categoryIdStr := c.Param("categoryId") // TODO: pass the categoryId in here
 	idStr := c.Param("id")
-	if idStr == "" {
+	if categoryIdStr == "" || idStr == "" {
 		c.String(http.StatusBadRequest, "Invalid path")
+		return
+	}
+	categoryId, err := strconv.ParseInt(categoryIdStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category id")
 		return
 	}
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -337,8 +393,19 @@ func (h *Handler) DeleteReference(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.DeleteReference(id); err != nil {
-		slog.Error("failed to delete reference", "error", err, "id", id)
+	catId, err := model.NewId(categoryId)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category id")
+		return
+	}
+	refId, err := model.NewId(id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid reference id")
+		return
+	}
+	_, err = h.categoryService.RemoveReference(catId, refId)
+	if err != nil {
+		slog.Error("failed to delete reference", "error", err, "categoryId", categoryId, "id", id)
 		c.String(http.StatusInternalServerError, "Failed to delete reference")
 		return
 	}
@@ -392,6 +459,35 @@ func (h *Handler) UpdateBook(c *gin.Context) {
 	isbn := c.PostForm("isbn")
 	description := c.PostForm("description")
 	starred := c.PostForm("starred") == "on"
+
+	refId, err := model.NewId(id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid reference id")
+		return
+	}
+	bookTitle, err := model.NewTitle(title)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid title")
+		return
+	}
+	bookISBN, err := model.NewISBN(isbn)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid ISBN")
+		return
+	}
+	book := model.NewBookReference(
+		refId,
+		bookTitle,
+		bookISBN,
+		description,
+		starred,
+	)
+
+	if err := h.referenceRepo.UpdateReference(refId, book); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update reference")
+		return
+	}
+
 	data := struct {
 		Id          int64
 		Title       string
@@ -404,11 +500,6 @@ func (h *Handler) UpdateBook(c *gin.Context) {
 		ISBN:        isbn,
 		Description: description,
 		Starred:     starred,
-	}
-	err = h.svc.UpdateBookReference(id, title, isbn, description, starred)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to update reference")
-		return
 	}
 	c.HTML(http.StatusOK, "_book", data)
 }
@@ -424,6 +515,35 @@ func (h *Handler) UpdateLink(c *gin.Context) {
 	url := c.PostForm("url")
 	description := c.PostForm("description")
 	starred := c.PostForm("starred") == "on"
+
+	refId, err := model.NewId(id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid reference id")
+		return
+	}
+	linkTitle, err := model.NewTitle(title)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid title")
+		return
+	}
+	linkURL, err := model.NewURL(url)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid URL")
+		return
+	}
+	link := model.NewLinkReference(
+		refId,
+		linkTitle,
+		linkURL,
+		description,
+		starred,
+	)
+
+	if err := h.referenceRepo.UpdateReference(refId, link); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update reference")
+		return
+	}
+
 	data := struct {
 		Id          int64
 		Title       string
@@ -436,11 +556,6 @@ func (h *Handler) UpdateLink(c *gin.Context) {
 		URL:         url,
 		Description: description,
 		Starred:     starred,
-	}
-	err = h.svc.UpdateLinkReference(id, title, url, description, starred)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to update reference")
-		return
 	}
 	c.HTML(http.StatusOK, "_link", data)
 }
@@ -455,6 +570,29 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 	title := c.PostForm("title")
 	content := c.PostForm("content")
 	starred := c.PostForm("starred") == "on"
+
+	refId, err := model.NewId(id)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid reference id")
+		return
+	}
+	noteTitle, err := model.NewTitle(title)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid title")
+		return
+	}
+	note := model.NewNoteReference(
+		refId,
+		noteTitle,
+		content,
+		starred,
+	)
+
+	if err := h.referenceRepo.UpdateReference(refId, note); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update reference")
+		return
+	}
+
 	data := struct {
 		Id      int64
 		Title   string
@@ -465,11 +603,6 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 		Title:   title,
 		Text:    content,
 		Starred: starred,
-	}
-	err = h.svc.UpdateNoteReference(id, title, content, starred)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to update reference")
-		return
 	}
 	c.HTML(http.StatusOK, "_note", data)
 }
@@ -490,9 +623,14 @@ func (h *Handler) EditCategoryForm(c *gin.Context) {
 
 func (h *Handler) UpdateCategory(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	idInt, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		c.String(http.StatusBadRequest, "Invalid id")
+		return
+	}
+	catId, err := model.NewId(idInt)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category id")
 		return
 	}
 	name := c.PostForm("name")
@@ -500,16 +638,21 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 		c.String(http.StatusBadRequest, "Category name required")
 		return
 	}
-	err = h.svc.UpdateCategory(id, name)
+	title, err := model.NewTitle(name)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid category name")
+		return
+	}
+	_, err = h.categoryService.UpdateTitle(catId, title)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to update category")
 		return
 	}
 	// Return updated sidebar
-	categories, _ := h.svc.GetAllCategories()
+	categories, _ := h.categoryListRepository.GetAllCategoryRefs()
 	c.HTML(http.StatusOK, "sidebar", SidebarData{
 		Categories:       categories,
-		ActiveCategoryId: id,
+		ActiveCategoryId: catId,
 	})
 }
 
@@ -519,24 +662,34 @@ func (h *Handler) ReorderCategories(c *gin.Context) {
 		c.String(http.StatusBadRequest, "Missing positions")
 		return
 	}
-	var positions map[int64]int
+	var positions map[model.Id]int
 	if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
 		c.String(http.StatusBadRequest, "Invalid positions format")
 		return
 	}
-	if err := h.svc.ReorderCategories(positions); err != nil {
+	if err := h.categoryListRepository.ReorderCategories(positions); err != nil {
 		c.String(http.StatusInternalServerError, "Failed to reorder categories")
 		return
 	}
-	categories, _ := h.svc.GetAllCategories()
+	categories, _ := h.categoryListRepository.GetAllCategoryRefs()
 
 	// Find the currently active category from the request or use the first one
 	activeCategoryIdStr := c.PostForm("activeCategoryId")
-	var activeCategoryId int64
+	var activeCategoryId model.Id
 	if activeCategoryIdStr != "" {
-		if id, err := strconv.ParseInt(activeCategoryIdStr, 10, 64); err == nil {
-			activeCategoryId = id
+		id, err := strconv.ParseInt(activeCategoryIdStr, 10, 64)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid activeCategoryId")
+			return
 		}
+		catId, err := model.NewId(id)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid activeCategoryId")
+			return
+		}
+		activeCategoryId = catId
+	} else if len(categories) > 0 {
+		activeCategoryId = categories[0].Id
 	}
 
 	c.HTML(http.StatusOK, "sidebar", SidebarData{
@@ -552,20 +705,42 @@ func (h *Handler) ReorderReferences(c *gin.Context) {
 		c.String(http.StatusBadRequest, "Missing categoryId or positions")
 		return
 	}
-	categoryId, err := strconv.ParseInt(categoryIdStr, 10, 64)
+	categoryIdInt, err := strconv.ParseInt(categoryIdStr, 10, 64)
 	if err != nil {
 		c.String(http.StatusBadRequest, "Invalid categoryId")
 		return
 	}
-	var positions map[int64]int
-	if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
+	catId, err := model.NewId(categoryIdInt)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid categoryId")
+		return
+	}
+
+	var rawPositions map[string]int
+	if err := json.Unmarshal([]byte(positionsStr), &rawPositions); err != nil {
 		c.String(http.StatusBadRequest, "Invalid positions format")
 		return
 	}
-	if err := h.svc.ReorderReferences(categoryId, positions); err != nil {
+	positions := make(map[model.Id]int, len(rawPositions))
+	for k, v := range rawPositions {
+		idInt, err := strconv.ParseInt(k, 10, 64)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid reference id in positions")
+			return
+		}
+		id, err := model.NewId(idInt)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid reference id in positions")
+			return
+		}
+		positions[id] = v
+	}
+
+	_, err = h.categoryService.ReorderReferences(catId, positions)
+	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to reorder references")
 		return
 	}
-	references := h.renderReferences(categoryId)
+	references := h.renderReferences(catId)
 	c.HTML(http.StatusOK, "_references_list", references)
 }

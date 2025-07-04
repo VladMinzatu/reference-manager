@@ -5,14 +5,13 @@ import (
 	"fmt"
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
-	"github.com/VladMinzatu/reference-manager/domain/repository"
 )
 
 type SQLiteReferencesRepository struct {
 	db *sql.DB
 }
 
-func NewSQLiteReferencesRepository(db *sql.DB) repository.ReferencesRepository {
+func NewSQLiteReferencesRepository(db *sql.DB) *SQLiteReferencesRepository {
 	return &SQLiteReferencesRepository{db: db}
 }
 

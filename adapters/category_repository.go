@@ -5,14 +5,13 @@ import (
 	"fmt"
 
 	"github.com/VladMinzatu/reference-manager/domain/model"
-	"github.com/VladMinzatu/reference-manager/domain/repository"
 )
 
 type SQLiteCategoryRepository struct {
 	db *sql.DB
 }
 
-func NewSQLiteCategoryRepository(db *sql.DB) repository.CategoryRepository {
+func NewSQLiteCategoryRepository(db *sql.DB) *SQLiteCategoryRepository {
 	return &SQLiteCategoryRepository{db: db}
 }
 

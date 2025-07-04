@@ -10,9 +10,11 @@ import (
 
 func main() {
 	db, _ := sql.Open("sqlite3", "db/references.db")
-	repo := adapters.NewSQLiteRepository(db)
-	svc := service.NewReferenceService(repo)
+	categoryRepo := adapters.NewSQLiteCategoryRepository(db)
+	categoryService := service.NewCategoryService(categoryRepo)
+	categoryListRepository := adapters.NewSQLiteCategoryListRepository(db)
+	referenceRepo := adapters.NewSQLiteReferencesRepository(db)
 
-	handler := web.NewHandler(svc)
+	handler := web.NewHandler(categoryService, categoryListRepository, referenceRepo)
 	web.StartServer(handler)
 }
