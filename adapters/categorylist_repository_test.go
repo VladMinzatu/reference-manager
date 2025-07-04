@@ -24,14 +24,14 @@ func TestSQLiteCategoryListRepository(t *testing.T) {
 	db := setupCategoryListTestDB(t)
 	repo := NewSQLiteCategoryListRepository(db)
 
-	t.Run("Add and GetAllCategoryNames", func(t *testing.T) {
+	t.Run("Add and GetAllCategoryRefs", func(t *testing.T) {
 		cat1, err := repo.AddNewCategory("Cat1")
 		require.NoError(t, err)
 		cat2, err := repo.AddNewCategory("Cat2")
 		require.NoError(t, err)
-		names, err := repo.GetAllCategoryNames()
+		refs, err := repo.GetAllCategoryRefs()
 		require.NoError(t, err)
-		require.Equal(t, []model.Title{"Cat1", "Cat2"}, names)
+		require.Equal(t, []model.CategoryRef{{Id: cat1.Id, Name: cat1.Name}, {Id: cat2.Id, Name: cat2.Name}}, refs)
 		_ = cat1
 		_ = cat2
 	})
@@ -39,15 +39,12 @@ func TestSQLiteCategoryListRepository(t *testing.T) {
 	t.Run("ReorderCategories", func(t *testing.T) {
 		_, err := repo.AddNewCategory("Cat3")
 		require.NoError(t, err)
-		names, err := repo.GetAllCategoryNames()
+		refs, err := repo.GetAllCategoryRefs()
 		require.NoError(t, err)
 		// Get ids
 		ids := make([]model.Id, 0, 3)
-		for _, name := range names {
-			var id int64
-			err := db.QueryRow(`SELECT id FROM categories WHERE name = ?`, name).Scan(&id)
-			require.NoError(t, err)
-			ids = append(ids, model.Id(id))
+		for _, ref := range refs {
+			ids = append(ids, ref.Id)
 		}
 		// Reverse order
 		positions := map[model.Id]int{

@@ -17,26 +17,31 @@ func NewSQLiteCategoryListRepository(db *sql.DB) repository.CategoryListReposito
 	return &SQLiteCategoryListRepository{db: db}
 }
 
-func (r *SQLiteCategoryListRepository) GetAllCategoryNames() ([]model.Title, error) {
-	rows, err := r.db.Query(`SELECT name FROM categories ORDER BY position`)
+func (r *SQLiteCategoryListRepository) GetAllCategoryRefs() ([]model.CategoryRef, error) {
+	rows, err := r.db.Query(`SELECT id, name FROM categories ORDER BY position`)
 	if err != nil {
-		return nil, fmt.Errorf("error querying category names: %v", err)
+		return nil, fmt.Errorf("error querying categories: %v", err)
 	}
 	defer rows.Close()
 
-	var names []model.Title
+	var refs []model.CategoryRef
 	for rows.Next() {
+		var id int64
 		var name string
-		if err := rows.Scan(&name); err != nil {
-			return nil, fmt.Errorf("error scanning category name: %v", err)
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("error scanning category: %v", err)
+		}
+		catId, err := model.NewId(id)
+		if err != nil {
+			return nil, fmt.Errorf("invalid id: %v", err)
 		}
 		title, err := model.NewTitle(name)
 		if err != nil {
-			return nil, fmt.Errorf("invalid category name: %v", err)
+			return nil, fmt.Errorf("invalid title: %v", err)
 		}
-		names = append(names, title)
+		refs = append(refs, model.CategoryRef{Id: catId, Name: title})
 	}
-	return names, nil
+	return refs, nil
 }
 
 func (r *SQLiteCategoryListRepository) AddNewCategory(name model.Title) (model.Category, error) {
