@@ -174,36 +174,39 @@ func (r *SQLiteCategoryRepository) ReorderReferences(id model.Id, positions map[
 	}
 	defer tx.Rollback()
 
-	// Use a single UPDATE statement for all position changes with version check - for atomicity and performance.
-	query := `
-		UPDATE base_references 
-		SET position = CASE id 
-	`
-	var args []interface{}
-	args = append(args, id, version)
-
-	for refId, position := range positions {
-		query += fmt.Sprintf(" WHEN %d THEN ?", refId)
-		args = append(args, position)
+	if len(positions) == 0 {
+		return fmt.Errorf("no references to reorder")
 	}
-	query += ` END
-		WHERE category_id = ? 
-		AND EXISTS (
-			SELECT 1 FROM categories 
-			WHERE id = ? AND version = ?
-		)`
 
-	result, err := tx.Exec(query, args...)
+	// Step 1: Set all positions to negative values to avoid unique constraint violation
+	negPositions := make(map[model.Id]int, len(positions))
+	for refId, pos := range positions {
+		negPositions[refId] = -pos
+	}
+	negQuery, negArgs := buildUpdateReferencePositionsQuery(id, negPositions, version)
+	result, err := tx.Exec(negQuery, negArgs...)
+	if err != nil {
+		return fmt.Errorf("error setting negative positions: %v", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error getting rows affected (neg): %v", err)
+	}
+	expectedUpdates := int64(len(positions))
+	if rowsAffected < expectedUpdates {
+		return fmt.Errorf("expected to update %d references, but only updated %d; category with id %d may not exist or version was out of date", expectedUpdates, rowsAffected, id)
+	}
+
+	// Step 2: Set positions to their intended positive values
+	posQuery, posArgs := buildUpdateReferencePositionsQuery(id, positions, version)
+	result, err = tx.Exec(posQuery, posArgs...)
 	if err != nil {
 		return fmt.Errorf("error updating reference positions: %v", err)
 	}
-
-	rowsAffected, err := result.RowsAffected()
+	rowsAffected, err = result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error getting rows affected: %v", err)
+		return fmt.Errorf("error getting rows affected (pos): %v", err)
 	}
-
-	expectedUpdates := int64(len(positions))
 	if rowsAffected < expectedUpdates {
 		return fmt.Errorf("expected to update %d references, but only updated %d; category with id %d may not exist or version was out of date", expectedUpdates, rowsAffected, id)
 	}
@@ -214,6 +217,41 @@ func (r *SQLiteCategoryRepository) ReorderReferences(id model.Id, positions map[
 	}
 
 	return tx.Commit()
+}
+
+// buildUpdateReferencePositionsQuery builds a single SQL update statement for reference positions using CASE WHEN.
+func buildUpdateReferencePositionsQuery(categoryId model.Id, positions map[model.Id]int, version model.Version) (string, []interface{}) {
+	caseStmt := ""
+	var caseArgs []interface{}
+	var refIds []interface{}
+	for refId, position := range positions {
+		caseStmt += " WHEN ? THEN ?"
+		caseArgs = append(caseArgs, int64(refId), position)
+		refIds = append(refIds, int64(refId))
+	}
+
+	inClause := ""
+	for i := range refIds {
+		if i > 0 {
+			inClause += ","
+		}
+		inClause += "?"
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE base_references
+		SET position = CASE id %s END
+		WHERE category_id = ?
+		AND id IN (%s)
+		AND EXISTS (
+			SELECT 1 FROM categories
+			WHERE id = ? AND version = ?
+		)`, caseStmt, inClause)
+
+	args := append(caseArgs, int64(categoryId))
+	args = append(args, refIds...)
+	args = append(args, int64(categoryId), int64(version))
+	return query, args
 }
 
 func (r *SQLiteCategoryRepository) AddReference(id model.Id, reference model.Reference, version model.Version) error {

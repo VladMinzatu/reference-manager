@@ -50,6 +50,10 @@ func (r *SQLiteCategoryListRepository) AddNewCategory(name model.Title) (model.C
 	}
 	defer tx.Rollback()
 
+	if _, err := model.NewTitle(string(name)); err != nil {
+		return model.Category{}, fmt.Errorf("invalid title: %v", err)
+	}
+
 	// Note: This logic is safe in SQLite because all writers are serialized.
 	// In e.g. Postgres, we would need row/table-level locking via SELECT...FOR UPDATE prior to this statement
 	// (sequences or separate table with table-level locking are also options, but with sqlite, we can keep it simple)
@@ -72,18 +76,11 @@ func (r *SQLiteCategoryListRepository) AddNewCategory(name model.Title) (model.C
 }
 
 func (r *SQLiteCategoryListRepository) ReorderCategories(positions map[model.Id]int) error {
-	// Use BEGIN IMMEDIATE to acquire a RESERVED lock up front, preventing concurrent writers.
-	// This ensures that the read-validate-write sequence is atomic and free of race conditions in SQLite.
-	//
-	// This is the one place in the code where I violate my pledge to design with fine granularity of locking in mind (see more details in README)
+	// This is the one place in the code where I violate my pledge to design with fine granularity of locking and concurrency in mind (see more details in README)
 	// If we were using e.g. Postgres, we would start off the transaction with a SELECT...FOR UPDATE on our categories and that would be sufficient, even in case of new categories being added concurrently (due to how the reordering logic works).
 	// Of course, even with SQLite, there are other options as well - we could use a separate table to lock or version our categories list for example.
-	// But since this is just an exercise and the choice of SQLite iself here doesn't really match with my self-imposed restriction to ensure fine granularity
-	// I'm satisfied to use the SQLite-esque approach here and know how it should ideally be done in another RDBMS.
-	_, err := r.db.Exec("BEGIN IMMEDIATE")
-	if err != nil {
-		return fmt.Errorf("error starting immediate transaction: %v", err)
-	}
+	// But since this is just an exercise and the choice of SQLite iself here doesn't really match with my self-imposed restriction to ensure fine granularity,
+	// I'm satisfied with taking this shortcuthere and know how it should ideally be done in another RDBMS.
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %v", err)
@@ -110,25 +107,42 @@ func (r *SQLiteCategoryListRepository) ReorderCategories(positions map[model.Id]
 		return err
 	}
 
-	query := `UPDATE categories SET position = CASE id`
-	args := []interface{}{}
-	for id, pos := range positions {
-		query += " WHEN ? THEN ?"
-		args = append(args, int64(id), pos)
-	}
-	query += " END WHERE id IN ("
-	first := true
-	for id := range positions {
-		if !first {
-			query += ","
+	// Helper function to build the UPDATE statement for category positions
+	buildUpdatePositionsQuery := func(positions map[model.Id]int) (string, []interface{}) {
+		query := `UPDATE categories SET position = CASE id`
+		args := []interface{}{}
+		for id, pos := range positions {
+			query += " WHEN ? THEN ?"
+			args = append(args, int64(id), pos)
 		}
-		query += "?"
-		args = append(args, int64(id))
-		first = false
+		query += " END WHERE id IN ("
+		first := true
+		for id := range positions {
+			if !first {
+				query += ","
+			}
+			query += "?"
+			args = append(args, int64(id))
+			first = false
+		}
+		query += ")"
+		return query, args
 	}
-	query += ")"
 
-	_, err = tx.Exec(query, args...)
+	// Step 1: Set all positions to negative values to avoid unique constraint violation
+	negPositions := make(map[model.Id]int, len(positions))
+	for id, pos := range positions {
+		negPositions[id] = -pos
+	}
+	negQuery, negArgs := buildUpdatePositionsQuery(negPositions)
+	_, err = tx.Exec(negQuery, negArgs...)
+	if err != nil {
+		return fmt.Errorf("error setting negative positions: %v", err)
+	}
+
+	// Step 2: Set positions to their intended positive values
+	posQuery, posArgs := buildUpdatePositionsQuery(positions)
+	_, err = tx.Exec(posQuery, posArgs...)
 	if err != nil {
 		return fmt.Errorf("error updating category positions: %v", err)
 	}

@@ -26,6 +26,12 @@ func main() {
 	}
 	defer db.Close()
 
+	// Enable foreign key constraints
+	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	if err != nil {
+		log.Fatalf("error enabling foreign keys: %v", err)
+	}
+
 	categoryRepo := adapters.NewSQLiteCategoryRepository(db)
 	categoryService := service.NewCategoryService(categoryRepo)
 	categoryListRepository := adapters.NewSQLiteCategoryListRepository(db)

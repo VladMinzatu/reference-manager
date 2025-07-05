@@ -6,6 +6,7 @@ import (
 	"regexp"
 )
 
+// TODO: need better enforcement of value object constraints throughout the project(avoid bypassing by implicit conversion)
 type Id int64
 
 func NewId(val int64) (Id, error) {

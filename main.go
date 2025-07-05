@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"log"
 
 	"github.com/VladMinzatu/reference-manager/adapters"
 	"github.com/VladMinzatu/reference-manager/domain/service"
@@ -9,7 +10,17 @@ import (
 )
 
 func main() {
-	db, _ := sql.Open("sqlite3", "db/references.db")
+	db, err := sql.Open("sqlite3", "db/references.db")
+	if err != nil {
+		log.Fatal("Failed to open database:", err)
+	}
+
+	// Enable foreign key constraints
+	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	if err != nil {
+		log.Fatal("Failed to enable foreign keys:", err)
+	}
+
 	categoryRepo := adapters.NewSQLiteCategoryRepository(db)
 	categoryService := service.NewCategoryService(categoryRepo)
 	categoryListRepository := adapters.NewSQLiteCategoryListRepository(db)
