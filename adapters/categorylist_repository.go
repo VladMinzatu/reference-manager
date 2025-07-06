@@ -132,7 +132,7 @@ func (r *SQLiteCategoryListRepository) ReorderCategories(positions map[model.Id]
 	// Step 1: Set all positions to negative values to avoid unique constraint violation
 	negPositions := make(map[model.Id]int, len(positions))
 	for id, pos := range positions {
-		negPositions[id] = -pos
+		negPositions[id] = -pos - 1 // -1 to avoid unique constraint violation for position=0
 	}
 	negQuery, negArgs := buildUpdatePositionsQuery(negPositions)
 	_, err = tx.Exec(negQuery, negArgs...)

@@ -785,6 +785,7 @@ func (h *Handler) ReorderReferences(c *gin.Context) {
 
 	_, err = h.categoryService.ReorderReferences(catId, positions)
 	if err != nil {
+		slog.Error("failed to reorder references", "error", err, "categoryId", categoryIdStr, "positions", positionsStr)
 		c.String(http.StatusInternalServerError, "Failed to reorder references")
 		return
 	}

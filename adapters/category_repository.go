@@ -181,7 +181,7 @@ func (r *SQLiteCategoryRepository) ReorderReferences(id model.Id, positions map[
 	// Step 1: Set all positions to negative values to avoid unique constraint violation
 	negPositions := make(map[model.Id]int, len(positions))
 	for refId, pos := range positions {
-		negPositions[refId] = -pos
+		negPositions[refId] = -pos - 1 // -1 to avoid unique constraint violation for position=0
 	}
 	negQuery, negArgs := buildUpdateReferencePositionsQuery(id, negPositions, version)
 	result, err := tx.Exec(negQuery, negArgs...)
