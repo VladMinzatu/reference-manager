@@ -7,6 +7,7 @@ import (
 	"github.com/VladMinzatu/reference-manager/adapters"
 	"github.com/VladMinzatu/reference-manager/domain/service"
 	"github.com/VladMinzatu/reference-manager/web"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {

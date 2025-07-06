@@ -10,6 +10,7 @@ import (
 	"github.com/VladMinzatu/reference-manager/adapters"
 	"github.com/VladMinzatu/reference-manager/domain/model"
 	"github.com/VladMinzatu/reference-manager/domain/service"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
 
