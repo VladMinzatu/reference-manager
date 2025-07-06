@@ -38,7 +38,7 @@ As simple as this app is, there are lots of competing choices and tradeoffs to b
 ### Assumptions
 
 - **A1**: The number of categories, as well as the number of references within one category are relatively small (few 100s at most).
-- **A2**: The application will need to support highly concurrent usage (I mean, not really, but this is the exercise I'm setting up for myself here :) ). But not the kind where the same category or reference is accessed concurrently (except maybe rarely). Think of it more as the schema being used in a situation where this data is joined with a user_id coming from somewhere, where each user has their own list of categories with the references within. Although that part is not modeled here. The point is, we'll need performant queries and granular locking.
+- **A2**: The application will need to support highly concurrent usage (I mean, not really, but this is the exercise I'm setting up for myself here :) ). But not the kind where the same category or reference is accessed concurrently (except maybe rarely, and we still need to account for it, of course). Think of it more as the schema being used in a situation where this data is joined with a user_id coming from somewhere, where each user has their own list of categories with the references within. Although that part is not modeled here. The point is, we'll need performant queries and granular locking.
 
 ### Requirements
 

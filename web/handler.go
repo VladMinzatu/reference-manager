@@ -213,23 +213,69 @@ type HTMLReferenceRenderer struct {
 	collected []template.HTML
 }
 
+// DTOs for template rendering
+type BookReferenceDTO struct {
+	Id          int64
+	Title       string
+	ISBN        string
+	Description string
+	Starred     bool
+}
+
+type LinkReferenceDTO struct {
+	Id          int64
+	Title       string
+	URL         string
+	Description string
+	Starred     bool
+}
+
+type NoteReferenceDTO struct {
+	Id      int64
+	Title   string
+	Text    string
+	Starred bool
+}
+
 func NewHTMLReferenceRenderer(tmpl *template.Template) *HTMLReferenceRenderer {
 	return &HTMLReferenceRenderer{tmpl: tmpl, collected: make([]template.HTML, 0)}
 }
 
 func (r *HTMLReferenceRenderer) RenderBook(ref model.BookReference) {
-	r.Render("_book", ref)
-}
-func (r *HTMLReferenceRenderer) RenderLink(ref model.LinkReference) {
-	r.Render("_link", ref)
-}
-func (r *HTMLReferenceRenderer) RenderNote(ref model.NoteReference) {
-	r.Render("_note", ref)
+	dto := BookReferenceDTO{
+		Id:          int64(ref.GetId()),
+		Title:       string(ref.Title()),
+		ISBN:        string(ref.ISBN),
+		Description: ref.Description,
+		Starred:     ref.Starred(),
+	}
+	r.Render("_book", dto)
 }
 
-func (r *HTMLReferenceRenderer) Render(rendererName string, ref model.Reference) {
+func (r *HTMLReferenceRenderer) RenderLink(ref model.LinkReference) {
+	dto := LinkReferenceDTO{
+		Id:          int64(ref.GetId()),
+		Title:       string(ref.Title()),
+		URL:         string(ref.URL),
+		Description: ref.Description,
+		Starred:     ref.Starred(),
+	}
+	r.Render("_link", dto)
+}
+
+func (r *HTMLReferenceRenderer) RenderNote(ref model.NoteReference) {
+	dto := NoteReferenceDTO{
+		Id:      int64(ref.GetId()),
+		Title:   string(ref.Title()),
+		Text:    ref.Text,
+		Starred: ref.Starred(),
+	}
+	r.Render("_note", dto)
+}
+
+func (r *HTMLReferenceRenderer) Render(rendererName string, data interface{}) {
 	var buf bytes.Buffer
-	err := r.tmpl.ExecuteTemplate(&buf, rendererName, ref)
+	err := r.tmpl.ExecuteTemplate(&buf, rendererName, data)
 	if err != nil {
 		// TODO: it's better to propagate and crash
 		slog.Error("failed to render template", "template", rendererName, "error", err)
@@ -237,6 +283,7 @@ func (r *HTMLReferenceRenderer) Render(rendererName string, ref model.Reference)
 	}
 	r.collected = append(r.collected, template.HTML(buf.String()))
 }
+
 func (r *HTMLReferenceRenderer) Collect() []template.HTML {
 	return r.collected
 }
