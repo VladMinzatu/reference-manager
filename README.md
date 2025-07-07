@@ -8,6 +8,12 @@
 >
 > Also, many production aspects like logging, observability or proper configuration handling haven't been added, as this is not the focus for me for this project.
 
+I have always been obsessive about carefully collecting and organising my personal list of reference books and learning materials. So making such a repository as a fullstack side project makes perfect sense.
+
+As a bonus, this repo is also where I store my personal backup for such learning resources, under `db/backup/vlad.db`.
+
+![Screenshot of reference-manager UI](assets/screenshot.png)
+
 ## Starred references
 
 The application and db schema now include the possibility to mark certain references as 'starred', along with the possibility to filter out references when retrieving them based on their starred status.
