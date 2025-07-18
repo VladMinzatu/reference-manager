@@ -10,7 +10,7 @@
 
 I have always been obsessive about carefully collecting and organising my personal list of reference books and learning materials. So making such a repository as a fullstack side project makes perfect sense.
 
-As a bonus, this repo is also where I store my personal backup for such learning resources, under `db/backup/vlad.db`.
+As a bonus, this repo is also where I store my personal backup for such learning resources, under `db/backup/vlad.db` (in progress).
 
 ![Screenshot of reference-manager UI](assets/screenshot.png)
 
